@@ -27,6 +27,13 @@ export const config = {
     },
 };
 
+// Web-safe fonts that are guaranteed to be available
+const WEB_SAFE_FONTS = [
+    'Arial', 'Helvetica', 'Times New Roman', 'Times', 'Courier New',
+    'Courier', 'Verdana', 'Georgia', 'Palatino', 'Garamond',
+    'Bookman', 'Tahoma', 'Trebuchet MS', 'Impact', 'Comic Sans MS'
+];
+
 // Use named export instead of default export
 export async function handler(req: VercelRequest, res: VercelResponse) {
     // Only allow POST requests
@@ -51,6 +58,9 @@ export async function handler(req: VercelRequest, res: VercelResponse) {
         if (!quote || !author) {
             return res.status(400).json({ error: 'Quote and author are required' });
         }
+
+        // Ensure we use a web-safe font
+        const safeFont = WEB_SAFE_FONTS.includes(font) ? font : 'Arial';
 
         // Check if content is too long
         const isContentTooLong = quote.length > MAX_QUOTE_LENGTH;
@@ -100,11 +110,11 @@ export async function handler(req: VercelRequest, res: VercelResponse) {
         if (isContentTooLong) {
             // SVG for "content too long" message
             svgContent = `
-        <svg width="1000" height="1000">
+        <svg width="1000" height="1000" xmlns="http://www.w3.org/2000/svg">
           <style>
-            .title { font: bold 36px ${font || 'Arial'}; fill: #1A1A1A; text-anchor: middle; }
-            .subtitle { font: 24px ${font || 'Arial'}; fill: #1A1A1A; text-anchor: middle; }
-            .author { font: 32px ${font || 'Arial'}; fill: #1A1A1A; text-anchor: middle; }
+            .title { font: bold 36px ${safeFont}; fill: #1A1A1A; text-anchor: middle; }
+            .subtitle { font: 24px ${safeFont}; fill: #1A1A1A; text-anchor: middle; }
+            .author { font: 32px ${safeFont}; fill: #1A1A1A; text-anchor: middle; }
           </style>
           <text x="500" y="480" class="title">This note is too long for a quote</text>
           <text x="500" y="530" class="subtitle">Content exceeds ${MAX_QUOTE_LENGTH} characters</text>
@@ -114,7 +124,7 @@ export async function handler(req: VercelRequest, res: VercelResponse) {
         } else {
             // Word wrap for the quote
             const words = quote.split(' ');
-            const lines = [];
+            const lines: string[] = [];
             let currentLine = words[0];
             const maxLineWidth = 30; // Approximate characters per line
 
@@ -135,17 +145,33 @@ export async function handler(req: VercelRequest, res: VercelResponse) {
 
             let linesHTML = '';
             lines.forEach((line, i) => {
-                linesHTML += `<text x="500" y="${startY + i * lineHeight}" class="quote">${line}</text>`;
+                // Escape special characters in the text to prevent XML issues
+                const escapedLine = line
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&apos;');
+
+                linesHTML += `<text x="500" y="${startY + i * lineHeight}" class="quote">${escapedLine}</text>`;
             });
 
+            // Escape author name as well
+            const escapedAuthor = author
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&apos;');
+
             svgContent = `
-        <svg width="1000" height="1000">
+        <svg width="1000" height="1000" xmlns="http://www.w3.org/2000/svg">
           <style>
-            .quote { font: bold 48px ${font || 'Arial'}; fill: #1A1A1A; text-anchor: middle; }
-            .author { font: 32px ${font || 'Arial'}; fill: #1A1A1A; text-anchor: middle; }
+            .quote { font: bold 48px ${safeFont}; fill: #1A1A1A; text-anchor: middle; }
+            .author { font: 32px ${safeFont}; fill: #1A1A1A; text-anchor: middle; }
           </style>
           ${linesHTML}
-          <text x="500" y="${startY + lines.length * lineHeight + 40}" class="author">- ${author}</text>
+          <text x="500" y="${startY + lines.length * lineHeight + 40}" class="author">- ${escapedAuthor}</text>
         </svg>
       `;
         }
@@ -181,9 +207,9 @@ export async function handler(req: VercelRequest, res: VercelResponse) {
         } else if (nostrEventId && eventIdDisplayMode === 'text') {
             // Add text reference as SVG
             const eventIdSvg = `
-        <svg width="1000" height="1000">
+        <svg width="1000" height="1000" xmlns="http://www.w3.org/2000/svg">
           <style>
-            .eventId { font: 14px ${font || 'Arial'}; fill: rgba(0,0,0,0.2); text-anchor: middle; }
+            .eventId { font: 14px ${safeFont}; fill: rgba(0,0,0,0.2); text-anchor: middle; }
           </style>
           <text x="500" y="980" class="eventId">${nostrEventId}</text>
         </svg>
