@@ -61,7 +61,9 @@
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.3",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "canvas": "^2.11.2",
+    "@vercel/node": "^3.0.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",
