@@ -87,7 +87,7 @@ export const NostrInput = ({ onEventSubmit }: NostrInputProps) => {
     <Card className="p-6 glass-card animate-slideUp">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <h3 className="text-lg font-semibold text-foreground">Enter Nostr Event ID or URL</h3>
+          <h3 className="text-lg font-semibold text-foreground">Enter Nostr Event</h3>
           <p className="text-sm text-muted-foreground">
             Paste a Nostr event ID or URL to generate a beautiful quote image
           </p>
