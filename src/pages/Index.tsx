@@ -5,7 +5,7 @@ import { StyleControls } from "@/components/StyleControls";
 
 const Index = () => {
   const [quoteData, setQuoteData] = useState<{ content: string; author: string; eventId?: string; profilePicture?: string } | null>(null);
-  const [font, setFont] = useState("Inter");
+  const [font, setFont] = useState("Playfair Display");
   const [background, setBackground] = useState("#FFFFFF");
   const [backgroundType, setBackgroundType] = useState<BackgroundType>("profile");
   const [eventIdDisplayMode, setEventIdDisplayMode] = useState<EventIdDisplayMode>("qrcode");

@@ -34,8 +34,8 @@ export const StyleControls = ({
               <SelectValue placeholder="Select font" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Inter">Inter</SelectItem>
               <SelectItem value="Playfair Display">Playfair Display</SelectItem>
+              <SelectItem value="Inter">Inter</SelectItem>
             </SelectContent>
           </Select>
         </div>
