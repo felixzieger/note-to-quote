@@ -133,8 +133,8 @@ export const QuoteCanvas = ({
               // Create a temporary canvas for the QR code
               const qrCanvas = document.createElement("canvas");
 
-              // Create njump.me URL for the Nostr event
-              const njumpUrl = `https://njump.me/${nostrEventId}`;
+              // Create nosta.me URL for the Nostr event
+              const njumpUrl = `https://nosta.me/${nostrEventId}`;
 
               // Generate QR code on the temporary canvas
               await QRCode.toCanvas(qrCanvas, njumpUrl, {
@@ -209,8 +209,8 @@ export const QuoteCanvas = ({
             // Create a temporary canvas for the QR code
             const qrCanvas = document.createElement("canvas");
 
-            // Create njump.me URL for the Nostr event
-            const njumpUrl = `https://njump.me/${nostrEventId}`;
+            // Create nosta.me URL for the Nostr event
+            const njumpUrl = `https://nosta.me/${nostrEventId}`;
 
             // Generate QR code on the temporary canvas
             await QRCode.toCanvas(qrCanvas, njumpUrl, {

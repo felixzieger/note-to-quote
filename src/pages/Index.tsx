@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NostrInput } from "@/components/NostrInput";
 import { QuoteCanvas, EventIdDisplayMode, BackgroundType } from "@/components/QuoteCanvas";
 import { StyleControls } from "@/components/StyleControls";
+import Footer from "@/components/Footer";
 
 const Index = () => {
   const [quoteData, setQuoteData] = useState<{ content: string; author: string; eventId?: string; profilePicture?: string } | null>(null);
@@ -51,6 +52,8 @@ const Index = () => {
             />
           </div>
         </div>
+
+        <Footer />
       </div>
     </div>
   );
