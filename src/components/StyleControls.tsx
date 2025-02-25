@@ -1,13 +1,15 @@
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { EventIdDisplayMode } from "@/components/QuoteCanvas";
+import { EventIdDisplayMode, BackgroundType } from "@/components/QuoteCanvas";
 
 interface StyleControlsProps {
   font: string;
   onFontChange: (value: string) => void;
   background: string;
   onBackgroundChange: (value: string) => void;
+  backgroundType: BackgroundType;
+  onBackgroundTypeChange: (value: BackgroundType) => void;
   eventIdDisplayMode: EventIdDisplayMode;
   onEventIdDisplayModeChange: (value: EventIdDisplayMode) => void;
 }
@@ -17,6 +19,8 @@ export const StyleControls = ({
   onFontChange,
   background,
   onBackgroundChange,
+  backgroundType,
+  onBackgroundTypeChange,
   eventIdDisplayMode,
   onEventIdDisplayModeChange,
 }: StyleControlsProps) => {
@@ -35,19 +39,40 @@ export const StyleControls = ({
             </SelectContent>
           </Select>
         </div>
+
         <div className="space-y-2">
-          <Label htmlFor="background">Background Style</Label>
-          <Select value={background} onValueChange={onBackgroundChange}>
+          <Label htmlFor="backgroundType">Background Type</Label>
+          <Select
+            value={backgroundType}
+            onValueChange={(value) => onBackgroundTypeChange(value as BackgroundType)}
+          >
             <SelectTrigger>
-              <SelectValue placeholder="Select background" />
+              <SelectValue placeholder="Select background type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="#FFFFFF">White</SelectItem>
-              <SelectItem value="#F8FAFC">Light Gray</SelectItem>
-              <SelectItem value="#EDE9FE">Soft Purple</SelectItem>
+              <SelectItem value="profile">Author Profile Picture</SelectItem>
+              <SelectItem value="generated">Generated Picture</SelectItem>
+              <SelectItem value="color">Solid Color</SelectItem>
             </SelectContent>
           </Select>
         </div>
+
+        {backgroundType === "color" && (
+          <div className="space-y-2">
+            <Label htmlFor="background">Background Color</Label>
+            <Select value={background} onValueChange={onBackgroundChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select background color" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="#FFFFFF">White</SelectItem>
+                <SelectItem value="#F8FAFC">Light Gray</SelectItem>
+                <SelectItem value="#EDE9FE">Soft Purple</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label htmlFor="eventIdDisplay">Event ID Display</Label>
           <Select

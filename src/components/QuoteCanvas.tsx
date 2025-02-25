@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import QRCode from "qrcode";
 
 export type EventIdDisplayMode = "text" | "qrcode" | "hidden";
+export type BackgroundType = "color" | "profile" | "generated";
 
 // Maximum number of characters allowed for a quote
 const MAX_QUOTE_LENGTH = 314;
@@ -12,6 +13,8 @@ interface QuoteCanvasProps {
   author: string;
   font: string;
   background: string;
+  backgroundType: BackgroundType;
+  authorProfilePicture?: string;
   nostrEventId?: string;
   eventIdDisplayMode?: EventIdDisplayMode;
 }
@@ -21,12 +24,39 @@ export const QuoteCanvas = ({
   author,
   font,
   background,
+  backgroundType = "color",
+  authorProfilePicture,
   nostrEventId,
   eventIdDisplayMode = "qrcode"
 }: QuoteCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [canvasUrl, setCanvasUrl] = useState<string>("");
   const [isContentTooLong, setIsContentTooLong] = useState(false);
+  const [backgroundImage, setBackgroundImage] = useState<HTMLImageElement | null>(null);
+  const [backgroundLoaded, setBackgroundLoaded] = useState(false);
+  const [backgroundError, setBackgroundError] = useState(false);
+
+  // Load profile picture if needed
+  useEffect(() => {
+    if (backgroundType === "profile" && authorProfilePicture) {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        setBackgroundImage(img);
+        setBackgroundLoaded(true);
+        setBackgroundError(false);
+      };
+      img.onerror = () => {
+        console.error("Failed to load author profile picture");
+        setBackgroundError(true);
+        setBackgroundLoaded(false);
+      };
+      img.src = authorProfilePicture;
+    } else {
+      setBackgroundImage(null);
+      setBackgroundLoaded(false);
+    }
+  }, [backgroundType, authorProfilePicture]);
 
   useEffect(() => {
     // Check if content is too long
@@ -40,12 +70,30 @@ export const QuoteCanvas = ({
       if (!ctx) return;
 
       // Set canvas size
-      canvas.width = 1200;
-      canvas.height = 630;
+      canvas.width = 1000;
+      canvas.height = 1000;
 
-      // Clear canvas
-      ctx.fillStyle = background;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Clear canvas with background color or image
+      if (backgroundType === "profile" && backgroundImage && backgroundLoaded) {
+        // Draw profile picture as background with a semi-transparent overlay
+        ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+
+        // Add a semi-transparent overlay to improve text readability
+        ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      } else if (backgroundType === "generated") {
+        // For now, just use a gradient as a placeholder for the generated background
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, "#f3e7e9");
+        gradient.addColorStop(0.5, "#e3eeff");
+        gradient.addColorStop(1, "#f3e7e9");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      } else {
+        // Use solid color background
+        ctx.fillStyle = background;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
 
       // If content is too long, show message
       if (quote.length > MAX_QUOTE_LENGTH) {
@@ -183,7 +231,7 @@ export const QuoteCanvas = ({
     };
 
     renderCanvas();
-  }, [quote, author, font, background, nostrEventId, eventIdDisplayMode]);
+  }, [quote, author, font, background, backgroundType, backgroundImage, backgroundLoaded, nostrEventId, eventIdDisplayMode]);
 
   return (
     <Card className="p-4 glass-card animate-fadeIn">
@@ -191,6 +239,12 @@ export const QuoteCanvas = ({
         <div className="mb-4 p-3 bg-yellow-50 text-yellow-800 rounded-md text-sm">
           <p className="font-medium">Note is too long for a quote</p>
           <p>The content exceeds {MAX_QUOTE_LENGTH} characters. The image will show a message instead of the full content.</p>
+        </div>
+      )}
+      {backgroundType === "profile" && backgroundError && (
+        <div className="mb-4 p-3 bg-yellow-50 text-yellow-800 rounded-md text-sm">
+          <p className="font-medium">Could not load profile picture</p>
+          <p>Using default background instead.</p>
         </div>
       )}
       <canvas ref={canvasRef} className="w-full max-w-[600px] mx-auto rounded-lg shadow-lg" />

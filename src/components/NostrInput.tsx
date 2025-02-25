@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { fetchNostrEvent } from "@/utils/nostrFetcher";
 
 interface NostrInputProps {
-  onEventSubmit: (event: { content: string; author: string; eventId?: string }) => void;
+  onEventSubmit: (event: { content: string; author: string; eventId?: string; profilePicture?: string }) => void;
 }
 
 export const NostrInput = ({ onEventSubmit }: NostrInputProps) => {
@@ -69,7 +69,8 @@ export const NostrInput = ({ onEventSubmit }: NostrInputProps) => {
       onEventSubmit({
         content: result.event.content,
         author: authorName,
-        eventId: eventId
+        eventId: eventId,
+        profilePicture: result.profile?.picture
       });
 
       toast.success("Event loaded successfully!");

@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { NostrInput } from "@/components/NostrInput";
-import { QuoteCanvas, EventIdDisplayMode } from "@/components/QuoteCanvas";
+import { QuoteCanvas, EventIdDisplayMode, BackgroundType } from "@/components/QuoteCanvas";
 import { StyleControls } from "@/components/StyleControls";
 
 const Index = () => {
-  const [quoteData, setQuoteData] = useState<{ content: string; author: string; eventId?: string } | null>(null);
+  const [quoteData, setQuoteData] = useState<{ content: string; author: string; eventId?: string; profilePicture?: string } | null>(null);
   const [font, setFont] = useState("Inter");
   const [background, setBackground] = useState("#FFFFFF");
+  const [backgroundType, setBackgroundType] = useState<BackgroundType>("profile");
   const [eventIdDisplayMode, setEventIdDisplayMode] = useState<EventIdDisplayMode>("qrcode");
 
   return (
@@ -30,6 +31,8 @@ const Index = () => {
                 author={quoteData.author}
                 font={font}
                 background={background}
+                backgroundType={backgroundType}
+                authorProfilePicture={quoteData.profilePicture}
                 nostrEventId={quoteData.eventId}
                 eventIdDisplayMode={eventIdDisplayMode}
               />
@@ -41,6 +44,8 @@ const Index = () => {
               onFontChange={setFont}
               background={background}
               onBackgroundChange={setBackground}
+              backgroundType={backgroundType}
+              onBackgroundTypeChange={setBackgroundType}
               eventIdDisplayMode={eventIdDisplayMode}
               onEventIdDisplayModeChange={setEventIdDisplayMode}
             />
