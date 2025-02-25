@@ -27,12 +27,29 @@ export const config = {
     },
 };
 
-// Web-safe fonts that are guaranteed to be available
-const WEB_SAFE_FONTS = [
-    'Arial', 'Helvetica', 'Times New Roman', 'Times', 'Courier New',
-    'Courier', 'Verdana', 'Georgia', 'Palatino', 'Garamond',
-    'Bookman', 'Tahoma', 'Trebuchet MS', 'Impact', 'Comic Sans MS'
-];
+// Font families that work well in serverless environments
+// Using generic font families that don't require specific font files
+const FONT_FAMILIES = {
+    sans: 'sans-serif',
+    serif: 'serif',
+    mono: 'monospace',
+    // Map specific font requests to generic families
+    'Arial': 'sans-serif',
+    'Helvetica': 'sans-serif',
+    'Times New Roman': 'serif',
+    'Times': 'serif',
+    'Courier New': 'monospace',
+    'Courier': 'monospace',
+    'Verdana': 'sans-serif',
+    'Georgia': 'serif',
+    'Palatino': 'serif',
+    'Garamond': 'serif',
+    'Bookman': 'serif',
+    'Tahoma': 'sans-serif',
+    'Trebuchet MS': 'sans-serif',
+    'Impact': 'sans-serif',
+    'Comic Sans MS': 'sans-serif'
+};
 
 // Use named export instead of default export
 export async function handler(req: VercelRequest, res: VercelResponse) {
@@ -59,8 +76,8 @@ export async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(400).json({ error: 'Quote and author are required' });
         }
 
-        // Ensure we use a web-safe font
-        const safeFont = WEB_SAFE_FONTS.includes(font) ? font : 'Arial';
+        // Map the requested font to a generic font family that works in serverless environments
+        const fontFamily = FONT_FAMILIES[font as keyof typeof FONT_FAMILIES] || FONT_FAMILIES.sans;
 
         // Check if content is too long
         const isContentTooLong = quote.length > MAX_QUOTE_LENGTH;
@@ -111,11 +128,18 @@ export async function handler(req: VercelRequest, res: VercelResponse) {
             // SVG for "content too long" message
             svgContent = `
         <svg width="1000" height="1000" xmlns="http://www.w3.org/2000/svg">
-          <style>
-            .title { font: bold 36px ${safeFont}; fill: #1A1A1A; text-anchor: middle; }
-            .subtitle { font: 24px ${safeFont}; fill: #1A1A1A; text-anchor: middle; }
-            .author { font: 32px ${safeFont}; fill: #1A1A1A; text-anchor: middle; }
-          </style>
+          <defs>
+            <style>
+              @font-face {
+                font-family: 'QuoteFont';
+                src: local('${fontFamily}');
+              }
+              .title { font: bold 36px 'QuoteFont', ${fontFamily}; fill: #1A1A1A; text-anchor: middle; }
+              .subtitle { font: 24px 'QuoteFont', ${fontFamily}; fill: #1A1A1A; text-anchor: middle; }
+              .author { font: 32px 'QuoteFont', ${fontFamily}; fill: #1A1A1A; text-anchor: middle; }
+            </style>
+          </defs>
+          <rect width="1000" height="1000" fill="none" />
           <text x="500" y="480" class="title">This note is too long for a quote</text>
           <text x="500" y="530" class="subtitle">Content exceeds ${MAX_QUOTE_LENGTH} characters</text>
           <text x="500" y="600" class="author">- ${author}</text>
@@ -166,10 +190,17 @@ export async function handler(req: VercelRequest, res: VercelResponse) {
 
             svgContent = `
         <svg width="1000" height="1000" xmlns="http://www.w3.org/2000/svg">
-          <style>
-            .quote { font: bold 48px ${safeFont}; fill: #1A1A1A; text-anchor: middle; }
-            .author { font: 32px ${safeFont}; fill: #1A1A1A; text-anchor: middle; }
-          </style>
+          <defs>
+            <style>
+              @font-face {
+                font-family: 'QuoteFont';
+                src: local('${fontFamily}');
+              }
+              .quote { font: bold 48px 'QuoteFont', ${fontFamily}; fill: #1A1A1A; text-anchor: middle; }
+              .author { font: 32px 'QuoteFont', ${fontFamily}; fill: #1A1A1A; text-anchor: middle; }
+            </style>
+          </defs>
+          <rect width="1000" height="1000" fill="none" />
           ${linesHTML}
           <text x="500" y="${startY + lines.length * lineHeight + 40}" class="author">- ${escapedAuthor}</text>
         </svg>
@@ -208,9 +239,16 @@ export async function handler(req: VercelRequest, res: VercelResponse) {
             // Add text reference as SVG
             const eventIdSvg = `
         <svg width="1000" height="1000" xmlns="http://www.w3.org/2000/svg">
-          <style>
-            .eventId { font: 14px ${safeFont}; fill: rgba(0,0,0,0.2); text-anchor: middle; }
-          </style>
+          <defs>
+            <style>
+              @font-face {
+                font-family: 'QuoteFont';
+                src: local('${fontFamily}');
+              }
+              .eventId { font: 14px 'QuoteFont', ${fontFamily}; fill: rgba(0,0,0,0.2); text-anchor: middle; }
+            </style>
+          </defs>
+          <rect width="1000" height="1000" fill="none" />
           <text x="500" y="980" class="eventId">${nostrEventId}</text>
         </svg>
       `;
