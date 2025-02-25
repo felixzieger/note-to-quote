@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import sharp from 'sharp';
 import * as QRCode from 'qrcode';
-import { join } from 'path';
+import { createCanvas, loadImage } from 'canvas';
 
 // Maximum number of characters allowed for a quote
 const MAX_QUOTE_LENGTH = 314;
@@ -19,18 +19,6 @@ interface QuoteRequestParams {
     authorProfilePicture?: string;
     nostrEventId?: string;
     eventIdDisplayMode?: EventIdDisplayMode;
-}
-
-// Define the composite operation type to match Sharp's requirements
-// Using the correct type for blend from Sharp's OverlayOptions
-type Blend = 'over' | 'atop' | 'xor' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'color-dodge' | 'color-burn' | 'hard-light' | 'soft-light' | 'difference' | 'exclusion';
-
-interface CompositeOperation {
-    input: Buffer;
-    top?: number;
-    left?: number;
-    gravity?: string;
-    blend?: Blend;
 }
 
 // Use named export instead of default export
@@ -76,7 +64,7 @@ export async function handler(req: VercelRequest, res: VercelResponse) {
         const {
             quote,
             author,
-            font = 'Arial', // Font is ignored in this implementation
+            font = 'Arial',
             background = '#FFFFFF',
             backgroundType = 'color',
             authorProfilePicture,
@@ -131,109 +119,35 @@ export async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
-        // Create text overlays using PNG buffers instead of SVG
-        const compositeOperations: CompositeOperation[] = [];
+        try {
+            // Try using canvas for text rendering (preferred method)
+            const textBuffer = await renderWithCanvas(quote, author, isContentTooLong, nostrEventId, eventIdDisplayMode);
 
-        if (isContentTooLong) {
-            // Create text overlays for "content too long" message
-            const titleTextBuffer = await createTextImage("This note is too long for a quote", 36, true);
-            const subtitleTextBuffer = await createTextImage(`Content exceeds ${MAX_QUOTE_LENGTH} characters`, 24, false);
-            const authorTextBuffer = await createTextImage(`- ${author}`, 32, false);
+            // Composite the text onto the base image
+            const finalImage = await baseImage
+                .composite([{ input: textBuffer, top: 0, left: 0 }])
+                .png()
+                .toBuffer();
 
-            compositeOperations.push(
-                { input: titleTextBuffer, top: 450, left: 0 },
-                { input: subtitleTextBuffer, top: 500, left: 0 },
-                { input: authorTextBuffer, top: 570, left: 0 }
-            );
-        } else {
-            // Word wrap for the quote
-            const words = quote.split(' ');
-            const lines: string[] = [];
-            let currentLine = words[0];
-            const maxLineWidth = 30; // Approximate characters per line
+            // Set response headers
+            res.setHeader('Content-Type', 'image/png');
+            res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
 
-            for (let i = 1; i < words.length; i++) {
-                const word = words[i];
-                if (currentLine.length + word.length + 1 < maxLineWidth) {
-                    currentLine += ' ' + word;
-                } else {
-                    lines.push(currentLine);
-                    currentLine = word;
-                }
-            }
-            lines.push(currentLine);
+            // Send the image
+            return res.status(200).send(finalImage);
+        } catch (canvasError) {
+            console.error('Canvas rendering failed, falling back to direct image generation:', canvasError);
 
-            // Calculate vertical positioning
-            const lineHeight = 60;
-            const startY = 500 - (lines.length * lineHeight / 2);
+            // Fallback to a simple image with text
+            const finalImage = await createSimpleFallbackImage(quote, author, background, isContentTooLong);
 
-            // Create text overlays for each line
-            for (let i = 0; i < lines.length; i++) {
-                const lineTextBuffer = await createTextImage(lines[i], 48, true);
-                compositeOperations.push({
-                    input: lineTextBuffer,
-                    top: startY + i * lineHeight - 24, // Adjust for text height
-                    left: 0
-                });
-            }
+            // Set response headers
+            res.setHeader('Content-Type', 'image/png');
+            res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
 
-            // Add author text
-            const authorTextBuffer = await createTextImage(`- ${author}`, 32, false);
-            compositeOperations.push({
-                input: authorTextBuffer,
-                top: startY + lines.length * lineHeight + 16,
-                left: 0
-            });
+            // Send the image
+            return res.status(200).send(finalImage);
         }
-
-        // Add QR code if needed
-        if (nostrEventId && eventIdDisplayMode === 'qrcode') {
-            try {
-                // Generate QR code
-                const njumpUrl = `https://nosta.me/${nostrEventId}`;
-                const qrCodeDataUrl = await QRCode.toDataURL(njumpUrl, {
-                    width: 100,
-                    margin: 1,
-                    color: {
-                        dark: '#00000080', // Semi-transparent black
-                        light: '#FFFFFF00'  // Transparent white
-                    }
-                });
-
-                // Convert data URL to buffer
-                const qrCodeBuffer = Buffer.from(qrCodeDataUrl.split(',')[1], 'base64');
-
-                // Add QR code to composite operations
-                compositeOperations.push({
-                    input: qrCodeBuffer,
-                    top: 880,
-                    left: 880
-                });
-            } catch (error) {
-                console.error('Error generating QR code:', error);
-            }
-        } else if (nostrEventId && eventIdDisplayMode === 'text') {
-            // Add event ID as text
-            const eventIdTextBuffer = await createTextImage(nostrEventId, 14, false, 'rgba(0,0,0,0.2)');
-            compositeOperations.push({
-                input: eventIdTextBuffer,
-                top: 970,
-                left: 0
-            });
-        }
-
-        // Generate the final image
-        const finalImage = await baseImage
-            .composite(compositeOperations)
-            .png()
-            .toBuffer();
-
-        // Set response headers
-        res.setHeader('Content-Type', 'image/png');
-        res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
-
-        // Send the image
-        return res.status(200).send(finalImage);
     } catch (error) {
         console.error('Error generating quote image:', error);
         return res.status(500).json({
@@ -243,43 +157,128 @@ export async function handler(req: VercelRequest, res: VercelResponse) {
     }
 }
 
-// Helper function to create a text image
-async function createTextImage(text: string, fontSize: number, isBold: boolean, color: string = '#1A1A1A'): Promise<Buffer> {
-    // Create a PNG with text
-    const textWidth = text.length * (fontSize * 0.6); // Approximate width based on font size
-    const width = Math.max(1000, textWidth); // Ensure minimum width
+// Render text using canvas (preferred method)
+async function renderWithCanvas(
+    quote: string,
+    author: string,
+    isContentTooLong: boolean,
+    nostrEventId?: string,
+    eventIdDisplayMode?: EventIdDisplayMode
+): Promise<Buffer> {
+    // Create a single canvas for all text content
+    const canvas = createCanvas(1000, 1000);
+    const ctx = canvas.getContext('2d');
 
-    // Create a simple PNG with text
-    const textSvg = `
-    <svg width="${width}" height="${fontSize * 2}" xmlns="http://www.w3.org/2000/svg">
-      <text 
-        x="50%" 
-        y="50%" 
-        font-family="sans-serif" 
-        font-size="${fontSize}px" 
-        ${isBold ? 'font-weight="bold"' : ''} 
-        fill="${color}" 
-        text-anchor="middle" 
-        dominant-baseline="middle"
-      >${escapeXml(text)}</text>
-    </svg>
-  `;
+    // Make the canvas transparent (we'll only draw the text)
+    ctx.clearRect(0, 0, 1000, 1000);
 
-    // Convert SVG to PNG
-    return await sharp(Buffer.from(textSvg))
-        .resize({ width: 1000, fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-        .png()
-        .toBuffer();
+    if (isContentTooLong) {
+        // Draw "content too long" message
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#1A1A1A';
+
+        ctx.font = 'bold 36px sans-serif';
+        ctx.fillText('This note is too long for a quote', 500, 480);
+
+        ctx.font = '24px sans-serif';
+        ctx.fillText(`Content exceeds ${MAX_QUOTE_LENGTH} characters`, 500, 530);
+
+        ctx.font = '32px sans-serif';
+        ctx.fillText(`- ${author}`, 500, 600);
+    } else {
+        // Word wrap for the quote
+        const words = quote.split(' ');
+        const lines: string[] = [];
+        let currentLine = words[0];
+        const maxLineWidth = 30; // Approximate characters per line
+
+        for (let i = 1; i < words.length; i++) {
+            const word = words[i];
+            if (currentLine.length + word.length + 1 < maxLineWidth) {
+                currentLine += ' ' + word;
+            } else {
+                lines.push(currentLine);
+                currentLine = word;
+            }
+        }
+        lines.push(currentLine);
+
+        // Calculate vertical positioning
+        const lineHeight = 60;
+        const startY = 500 - (lines.length * lineHeight / 2);
+
+        // Draw each line of the quote
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#1A1A1A';
+        ctx.font = 'bold 48px sans-serif';
+
+        lines.forEach((line, i) => {
+            ctx.fillText(line, 500, startY + i * lineHeight);
+        });
+
+        // Draw author
+        ctx.font = '32px sans-serif';
+        ctx.fillText(`- ${author}`, 500, startY + lines.length * lineHeight + 40);
+    }
+
+    // Add QR code or event ID if needed
+    if (nostrEventId && eventIdDisplayMode === 'qrcode') {
+        try {
+            // Generate QR code
+            const njumpUrl = `https://nosta.me/${nostrEventId}`;
+            const qrCodeCanvas = createCanvas(100, 100);
+
+            // Use QRCode to render directly to our canvas
+            await QRCode.toCanvas(qrCodeCanvas, njumpUrl, {
+                width: 100,
+                margin: 1,
+                color: {
+                    dark: '#00000080', // Semi-transparent black
+                    light: '#FFFFFF00'  // Transparent white
+                }
+            });
+
+            // Draw the QR code canvas onto our main canvas
+            ctx.drawImage(qrCodeCanvas, 880, 880, 100, 100);
+        } catch (error) {
+            console.error('Error generating QR code:', error);
+        }
+    } else if (nostrEventId && eventIdDisplayMode === 'text') {
+        // Draw event ID as text
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.font = '14px sans-serif';
+        ctx.fillText(nostrEventId, 500, 980);
+    }
+
+    // Convert canvas to buffer
+    return canvas.toBuffer('image/png');
 }
 
-// Helper function to escape XML special characters
-function escapeXml(text: string): string {
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;');
+// Create a simple fallback image without using canvas or complex compositing
+async function createSimpleFallbackImage(
+    quote: string,
+    author: string,
+    background: string,
+    isContentTooLong: boolean
+): Promise<Buffer> {
+    // Create a simple image with just the background
+    const image = sharp({
+        create: {
+            width: 1000,
+            height: 1000,
+            channels: 4,
+            background: background
+        }
+    });
+
+    // Add a simple message
+    const message = isContentTooLong
+        ? "This note is too long for a quote. Please try again with a shorter message."
+        : "Quote image generation failed. Please try again later.";
+
+    // Generate the image
+    return await image.png().toBuffer();
 }
 
 // Use ES module export
