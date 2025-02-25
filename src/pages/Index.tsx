@@ -23,10 +23,11 @@ const Index = () => {
           </p>
         </div>
 
-        <div className="grid gap-8 md:grid-cols-[2fr,1fr]">
-          <div className="space-y-8">
-            <NostrInput onEventSubmit={setQuoteData} />
-            {quoteData && (
+        <div className="space-y-8">
+          <NostrInput onEventSubmit={setQuoteData} />
+
+          {quoteData && (
+            <>
               <QuoteCanvas
                 quote={quoteData.content}
                 author={quoteData.author}
@@ -37,20 +38,21 @@ const Index = () => {
                 nostrEventId={quoteData.eventId}
                 eventIdDisplayMode={eventIdDisplayMode}
               />
-            )}
-          </div>
-          <div>
-            <StyleControls
-              font={font}
-              onFontChange={setFont}
-              background={background}
-              onBackgroundChange={setBackground}
-              backgroundType={backgroundType}
-              onBackgroundTypeChange={setBackgroundType}
-              eventIdDisplayMode={eventIdDisplayMode}
-              onEventIdDisplayModeChange={setEventIdDisplayMode}
-            />
-          </div>
+
+              <div className="mt-6 relative z-10">
+                <StyleControls
+                  font={font}
+                  onFontChange={setFont}
+                  background={background}
+                  onBackgroundChange={setBackground}
+                  backgroundType={backgroundType}
+                  onBackgroundTypeChange={setBackgroundType}
+                  eventIdDisplayMode={eventIdDisplayMode}
+                  onEventIdDisplayModeChange={setEventIdDisplayMode}
+                />
+              </div>
+            </>
+          )}
         </div>
 
         <Footer />
