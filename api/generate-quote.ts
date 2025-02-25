@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import sharp from 'sharp';
 import * as QRCode from 'qrcode';
+import { join } from 'path';
 
 // Maximum number of characters allowed for a quote
 const MAX_QUOTE_LENGTH = 314;
@@ -18,6 +19,18 @@ interface QuoteRequestParams {
     authorProfilePicture?: string;
     nostrEventId?: string;
     eventIdDisplayMode?: EventIdDisplayMode;
+}
+
+// Define the composite operation type to match Sharp's requirements
+// Using the correct type for blend from Sharp's OverlayOptions
+type Blend = 'over' | 'atop' | 'xor' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'color-dodge' | 'color-burn' | 'hard-light' | 'soft-light' | 'difference' | 'exclusion';
+
+interface CompositeOperation {
+    input: Buffer;
+    top?: number;
+    left?: number;
+    gravity?: string;
+    blend?: Blend;
 }
 
 // Use named export instead of default export
@@ -63,7 +76,7 @@ export async function handler(req: VercelRequest, res: VercelResponse) {
         const {
             quote,
             author,
-            font = 'Arial',
+            font = 'Arial', // Font is ignored in this implementation
             background = '#FFFFFF',
             backgroundType = 'color',
             authorProfilePicture,
@@ -75,9 +88,6 @@ export async function handler(req: VercelRequest, res: VercelResponse) {
         if (!quote || !author) {
             return res.status(400).json({ error: 'Quote and author are required' });
         }
-
-        // Map the requested font to a generic font family that works in serverless environments
-        const fontFamily = FONT_FAMILIES[font as keyof typeof FONT_FAMILIES] || FONT_FAMILIES.sans;
 
         // Check if content is too long
         const isContentTooLong = quote.length > MAX_QUOTE_LENGTH;
@@ -121,30 +131,20 @@ export async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
-        // Create SVG for the text content
-        let svgContent = '';
+        // Create text overlays using PNG buffers instead of SVG
+        const compositeOperations: CompositeOperation[] = [];
 
         if (isContentTooLong) {
-            // SVG for "content too long" message
-            svgContent = `
-        <svg width="1000" height="1000" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <style>
-              @font-face {
-                font-family: 'QuoteFont';
-                src: local('${fontFamily}');
-              }
-              .title { font: bold 36px 'QuoteFont', ${fontFamily}; fill: #1A1A1A; text-anchor: middle; }
-              .subtitle { font: 24px 'QuoteFont', ${fontFamily}; fill: #1A1A1A; text-anchor: middle; }
-              .author { font: 32px 'QuoteFont', ${fontFamily}; fill: #1A1A1A; text-anchor: middle; }
-            </style>
-          </defs>
-          <rect width="1000" height="1000" fill="none" />
-          <text x="500" y="480" class="title">This note is too long for a quote</text>
-          <text x="500" y="530" class="subtitle">Content exceeds ${MAX_QUOTE_LENGTH} characters</text>
-          <text x="500" y="600" class="author">- ${author}</text>
-        </svg>
-      `;
+            // Create text overlays for "content too long" message
+            const titleTextBuffer = await createTextImage("This note is too long for a quote", 36, true);
+            const subtitleTextBuffer = await createTextImage(`Content exceeds ${MAX_QUOTE_LENGTH} characters`, 24, false);
+            const authorTextBuffer = await createTextImage(`- ${author}`, 32, false);
+
+            compositeOperations.push(
+                { input: titleTextBuffer, top: 450, left: 0 },
+                { input: subtitleTextBuffer, top: 500, left: 0 },
+                { input: authorTextBuffer, top: 570, left: 0 }
+            );
         } else {
             // Word wrap for the quote
             const words = quote.split(' ');
@@ -163,53 +163,30 @@ export async function handler(req: VercelRequest, res: VercelResponse) {
             }
             lines.push(currentLine);
 
-            // Create SVG with wrapped text
+            // Calculate vertical positioning
             const lineHeight = 60;
             const startY = 500 - (lines.length * lineHeight / 2);
 
-            let linesHTML = '';
-            lines.forEach((line, i) => {
-                // Escape special characters in the text to prevent XML issues
-                const escapedLine = line
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&apos;');
+            // Create text overlays for each line
+            for (let i = 0; i < lines.length; i++) {
+                const lineTextBuffer = await createTextImage(lines[i], 48, true);
+                compositeOperations.push({
+                    input: lineTextBuffer,
+                    top: startY + i * lineHeight - 24, // Adjust for text height
+                    left: 0
+                });
+            }
 
-                linesHTML += `<text x="500" y="${startY + i * lineHeight}" class="quote">${escapedLine}</text>`;
+            // Add author text
+            const authorTextBuffer = await createTextImage(`- ${author}`, 32, false);
+            compositeOperations.push({
+                input: authorTextBuffer,
+                top: startY + lines.length * lineHeight + 16,
+                left: 0
             });
-
-            // Escape author name as well
-            const escapedAuthor = author
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&apos;');
-
-            svgContent = `
-        <svg width="1000" height="1000" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <style>
-              @font-face {
-                font-family: 'QuoteFont';
-                src: local('${fontFamily}');
-              }
-              .quote { font: bold 48px 'QuoteFont', ${fontFamily}; fill: #1A1A1A; text-anchor: middle; }
-              .author { font: 32px 'QuoteFont', ${fontFamily}; fill: #1A1A1A; text-anchor: middle; }
-            </style>
-          </defs>
-          <rect width="1000" height="1000" fill="none" />
-          ${linesHTML}
-          <text x="500" y="${startY + lines.length * lineHeight + 40}" class="author">- ${escapedAuthor}</text>
-        </svg>
-      `;
         }
 
         // Add QR code if needed
-        let compositeOperations = [{ input: Buffer.from(svgContent), top: 0, left: 0 }];
-
         if (nostrEventId && eventIdDisplayMode === 'qrcode') {
             try {
                 // Generate QR code
@@ -236,23 +213,13 @@ export async function handler(req: VercelRequest, res: VercelResponse) {
                 console.error('Error generating QR code:', error);
             }
         } else if (nostrEventId && eventIdDisplayMode === 'text') {
-            // Add text reference as SVG
-            const eventIdSvg = `
-        <svg width="1000" height="1000" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <style>
-              @font-face {
-                font-family: 'QuoteFont';
-                src: local('${fontFamily}');
-              }
-              .eventId { font: 14px 'QuoteFont', ${fontFamily}; fill: rgba(0,0,0,0.2); text-anchor: middle; }
-            </style>
-          </defs>
-          <rect width="1000" height="1000" fill="none" />
-          <text x="500" y="980" class="eventId">${nostrEventId}</text>
-        </svg>
-      `;
-            compositeOperations.push({ input: Buffer.from(eventIdSvg), top: 0, left: 0 });
+            // Add event ID as text
+            const eventIdTextBuffer = await createTextImage(nostrEventId, 14, false, 'rgba(0,0,0,0.2)');
+            compositeOperations.push({
+                input: eventIdTextBuffer,
+                top: 970,
+                left: 0
+            });
         }
 
         // Generate the final image
@@ -274,6 +241,45 @@ export async function handler(req: VercelRequest, res: VercelResponse) {
             details: error instanceof Error ? error.message : 'Unknown error'
         });
     }
+}
+
+// Helper function to create a text image
+async function createTextImage(text: string, fontSize: number, isBold: boolean, color: string = '#1A1A1A'): Promise<Buffer> {
+    // Create a PNG with text
+    const textWidth = text.length * (fontSize * 0.6); // Approximate width based on font size
+    const width = Math.max(1000, textWidth); // Ensure minimum width
+
+    // Create a simple PNG with text
+    const textSvg = `
+    <svg width="${width}" height="${fontSize * 2}" xmlns="http://www.w3.org/2000/svg">
+      <text 
+        x="50%" 
+        y="50%" 
+        font-family="sans-serif" 
+        font-size="${fontSize}px" 
+        ${isBold ? 'font-weight="bold"' : ''} 
+        fill="${color}" 
+        text-anchor="middle" 
+        dominant-baseline="middle"
+      >${escapeXml(text)}</text>
+    </svg>
+  `;
+
+    // Convert SVG to PNG
+    return await sharp(Buffer.from(textSvg))
+        .resize({ width: 1000, fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .png()
+        .toBuffer();
+}
+
+// Helper function to escape XML special characters
+function escapeXml(text: string): string {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
 }
 
 // Use ES module export
