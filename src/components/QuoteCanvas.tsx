@@ -83,7 +83,17 @@ export const QuoteCanvas = ({
 
         // Draw profile picture as background with a semi-transparent overlay
         try {
-          ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+          // Calculate dimensions for center cropping to a square
+          const size = Math.min(backgroundImage.width, backgroundImage.height);
+          const offsetX = (backgroundImage.width - size) / 2;
+          const offsetY = (backgroundImage.height - size) / 2;
+          
+          // Draw the cropped square portion of the image
+          ctx.drawImage(
+            backgroundImage, 
+            offsetX, offsetY, size, size,  // Source coordinates and dimensions (cropped square)
+            0, 0, canvas.width, canvas.height  // Destination coordinates and dimensions
+          );
 
           // Add a semi-transparent overlay to improve text readability
           ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
