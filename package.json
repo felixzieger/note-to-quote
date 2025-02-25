@@ -62,7 +62,7 @@
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.3",
     "zod": "^3.23.8",
-    "canvas": "^2.11.2",
+    "sharp": "^0.33.2",
     "@vercel/node": "^3.0.7"
   },
   "devDependencies": {

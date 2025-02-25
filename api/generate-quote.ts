@@ -1,6 +1,6 @@
-import { createCanvas, loadImage, registerFont } from 'canvas';
+import { VercelRequest, VercelResponse } from '@vercel/node';
+import sharp from 'sharp';
 import QRCode from 'qrcode';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Maximum number of characters allowed for a quote
 const MAX_QUOTE_LENGTH = 314;
@@ -10,177 +10,196 @@ type BackgroundType = "color" | "profile";
 type EventIdDisplayMode = "text" | "qrcode" | "hidden";
 
 interface QuoteRequestParams {
-  quote: string;
-  author: string;
-  font: string;
-  background: string;
-  backgroundType: BackgroundType;
-  authorProfilePicture?: string;
-  nostrEventId?: string;
-  eventIdDisplayMode?: EventIdDisplayMode;
+    quote: string;
+    author: string;
+    font: string;
+    background: string;
+    backgroundType: BackgroundType;
+    authorProfilePicture?: string;
+    nostrEventId?: string;
+    eventIdDisplayMode?: EventIdDisplayMode;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Only allow POST requests
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
-    // Extract parameters from request body
-    const {
-      quote,
-      author,
-      font = 'Arial',
-      background = '#FFFFFF',
-      backgroundType = 'color',
-      authorProfilePicture,
-      nostrEventId,
-      eventIdDisplayMode = 'qrcode'
-    } = req.body as QuoteRequestParams;
-
-    // Validate required parameters
-    if (!quote || !author) {
-      return res.status(400).json({ error: 'Quote and author are required' });
+    // Only allow POST requests
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    // Create canvas with the same dimensions as in the component
-    const canvas = createCanvas(1000, 1000);
-    const ctx = canvas.getContext('2d');
+    try {
+        // Extract parameters from request body
+        const {
+            quote,
+            author,
+            font = 'Arial',
+            background = '#FFFFFF',
+            backgroundType = 'color',
+            authorProfilePicture,
+            nostrEventId,
+            eventIdDisplayMode = 'qrcode'
+        } = req.body as QuoteRequestParams;
 
-    // Handle background
-    if (backgroundType === 'profile' && authorProfilePicture) {
-      try {
-        // Load profile picture
-        const img = await loadImage(authorProfilePicture);
-        
-        // Draw profile picture as background
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        
-        // Add a semi-transparent overlay to improve text readability
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      } catch (error) {
-        console.error('Error loading profile picture:', error);
-        
-        // Fallback to a simple gradient if loading fails
-        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-        gradient.addColorStop(0, '#f3e7e9');
-        gradient.addColorStop(0.5, '#e3eeff');
-        gradient.addColorStop(1, '#f3e7e9');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
-    } else {
-      // Use solid color background
-      ctx.fillStyle = background;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-
-    // Check if content is too long
-    const isContentTooLong = quote.length > MAX_QUOTE_LENGTH;
-
-    // If content is too long, show message
-    if (isContentTooLong) {
-      ctx.font = `600 36px ${font}`;
-      ctx.fillStyle = '#1A1A1A';
-      ctx.textAlign = 'center';
-      ctx.fillText('This note is too long for a quote', canvas.width / 2, canvas.height / 2 - 20);
-
-      // Add a smaller explanation
-      ctx.font = `400 24px ${font}`;
-      ctx.fillText(`Content exceeds ${MAX_QUOTE_LENGTH} characters`, canvas.width / 2, canvas.height / 2 + 30);
-
-      // Still show author
-      ctx.font = `400 32px ${font}`;
-      ctx.fillText(`- ${author}`, canvas.width / 2, canvas.height / 2 + 100);
-    } else {
-      // Draw quote
-      ctx.font = `600 48px ${font}`;
-      ctx.fillStyle = '#1A1A1A';
-      ctx.textAlign = 'center';
-
-      // Word wrap logic
-      const words = quote.split(' ');
-      const lines = [];
-      let currentLine = words[0];
-
-      for (let i = 1; i < words.length; i++) {
-        const word = words[i];
-        const width = ctx.measureText(currentLine + ' ' + word).width;
-        if (width < canvas.width - 100) {
-          currentLine += ' ' + word;
-        } else {
-          lines.push(currentLine);
-          currentLine = word;
+        // Validate required parameters
+        if (!quote || !author) {
+            return res.status(400).json({ error: 'Quote and author are required' });
         }
-      }
-      lines.push(currentLine);
 
-      // Draw text
-      lines.forEach((line, i) => {
-        ctx.fillText(line, canvas.width / 2, canvas.height / 2 - (lines.length - 1) * 30 + i * 60);
-      });
+        // Check if content is too long
+        const isContentTooLong = quote.length > MAX_QUOTE_LENGTH;
 
-      // Draw author
-      ctx.font = `400 32px ${font}`;
-      ctx.fillText(`- ${author}`, canvas.width / 2, canvas.height / 2 + lines.length * 40);
-    }
-
-    // Draw Nostr event ID based on display mode
-    if (nostrEventId && eventIdDisplayMode !== 'hidden') {
-      if (eventIdDisplayMode === 'text') {
-        // Draw as text (subtle, low contrast at bottom)
-        ctx.font = `300 14px ${font}`;
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)'; // Very low contrast
-        ctx.textAlign = 'center';
-        ctx.fillText(nostrEventId, canvas.width / 2, canvas.height - 20);
-      } else if (eventIdDisplayMode === 'qrcode') {
-        try {
-          // Create a temporary canvas for the QR code
-          const qrCanvas = createCanvas(100, 100);
-
-          // Create nosta.me URL for the Nostr event
-          const njumpUrl = `https://nosta.me/${nostrEventId}`;
-
-          // Generate QR code
-          await QRCode.toCanvas(qrCanvas, njumpUrl, {
-            width: 100,
-            margin: 1,
-            color: {
-              dark: '#00000080', // Semi-transparent black
-              light: '#FFFFFF00'  // Transparent white
+        // Create a base image
+        let baseImage = sharp({
+            create: {
+                width: 1000,
+                height: 1000,
+                channels: 4,
+                background: background
             }
-          });
+        });
 
-          // Draw the QR code onto the main canvas
-          ctx.drawImage(qrCanvas, canvas.width - 120, canvas.height - 120, 100, 100);
-        } catch (error) {
-          console.error('Error generating QR code:', error);
+        // If using profile picture as background
+        if (backgroundType === 'profile' && authorProfilePicture) {
+            try {
+                // Fetch the profile picture
+                const response = await fetch(authorProfilePicture);
+                if (!response.ok) throw new Error('Failed to fetch profile picture');
 
-          // Fallback to text if QR code generation fails
-          ctx.font = `300 14px ${font}`;
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-          ctx.textAlign = 'center';
-          ctx.fillText(nostrEventId, canvas.width / 2, canvas.height - 20);
+                const profileBuffer = await response.arrayBuffer();
+
+                // Create a composite with the profile picture and an overlay
+                baseImage = sharp(Buffer.from(profileBuffer))
+                    .resize(1000, 1000, { fit: 'cover' })
+                    .composite([{
+                        input: {
+                            create: {
+                                width: 1000,
+                                height: 1000,
+                                channels: 4,
+                                background: { r: 255, g: 255, b: 255, alpha: 0.7 }
+                            }
+                        },
+                        blend: 'over'
+                    }]);
+            } catch (error) {
+                console.error('Error loading profile picture:', error);
+                // Continue with default background
+            }
         }
-      }
+
+        // Create SVG for the text content
+        let svgContent = '';
+
+        if (isContentTooLong) {
+            // SVG for "content too long" message
+            svgContent = `
+        <svg width="1000" height="1000">
+          <style>
+            .title { font: bold 36px ${font || 'Arial'}; fill: #1A1A1A; text-anchor: middle; }
+            .subtitle { font: 24px ${font || 'Arial'}; fill: #1A1A1A; text-anchor: middle; }
+            .author { font: 32px ${font || 'Arial'}; fill: #1A1A1A; text-anchor: middle; }
+          </style>
+          <text x="500" y="480" class="title">This note is too long for a quote</text>
+          <text x="500" y="530" class="subtitle">Content exceeds ${MAX_QUOTE_LENGTH} characters</text>
+          <text x="500" y="600" class="author">- ${author}</text>
+        </svg>
+      `;
+        } else {
+            // Word wrap for the quote
+            const words = quote.split(' ');
+            const lines = [];
+            let currentLine = words[0];
+            const maxLineWidth = 30; // Approximate characters per line
+
+            for (let i = 1; i < words.length; i++) {
+                const word = words[i];
+                if (currentLine.length + word.length + 1 < maxLineWidth) {
+                    currentLine += ' ' + word;
+                } else {
+                    lines.push(currentLine);
+                    currentLine = word;
+                }
+            }
+            lines.push(currentLine);
+
+            // Create SVG with wrapped text
+            const lineHeight = 60;
+            const startY = 500 - (lines.length * lineHeight / 2);
+
+            let linesHTML = '';
+            lines.forEach((line, i) => {
+                linesHTML += `<text x="500" y="${startY + i * lineHeight}" class="quote">${line}</text>`;
+            });
+
+            svgContent = `
+        <svg width="1000" height="1000">
+          <style>
+            .quote { font: bold 48px ${font || 'Arial'}; fill: #1A1A1A; text-anchor: middle; }
+            .author { font: 32px ${font || 'Arial'}; fill: #1A1A1A; text-anchor: middle; }
+          </style>
+          ${linesHTML}
+          <text x="500" y="${startY + lines.length * lineHeight + 40}" class="author">- ${author}</text>
+        </svg>
+      `;
+        }
+
+        // Add QR code if needed
+        let compositeOperations = [{ input: Buffer.from(svgContent), top: 0, left: 0 }];
+
+        if (nostrEventId && eventIdDisplayMode === 'qrcode') {
+            try {
+                // Generate QR code
+                const njumpUrl = `https://nosta.me/${nostrEventId}`;
+                const qrCodeDataUrl = await QRCode.toDataURL(njumpUrl, {
+                    width: 100,
+                    margin: 1,
+                    color: {
+                        dark: '#00000080', // Semi-transparent black
+                        light: '#FFFFFF00'  // Transparent white
+                    }
+                });
+
+                // Convert data URL to buffer
+                const qrCodeBuffer = Buffer.from(qrCodeDataUrl.split(',')[1], 'base64');
+
+                // Add QR code to composite operations
+                compositeOperations.push({
+                    input: qrCodeBuffer,
+                    top: 880,
+                    left: 880
+                });
+            } catch (error) {
+                console.error('Error generating QR code:', error);
+            }
+        } else if (nostrEventId && eventIdDisplayMode === 'text') {
+            // Add text reference as SVG
+            const eventIdSvg = `
+        <svg width="1000" height="1000">
+          <style>
+            .eventId { font: 14px ${font || 'Arial'}; fill: rgba(0,0,0,0.2); text-anchor: middle; }
+          </style>
+          <text x="500" y="980" class="eventId">${nostrEventId}</text>
+        </svg>
+      `;
+            compositeOperations.push({ input: Buffer.from(eventIdSvg), top: 0, left: 0 });
+        }
+
+        // Generate the final image
+        const finalImage = await baseImage
+            .composite(compositeOperations)
+            .png()
+            .toBuffer();
+
+        // Set response headers
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+
+        // Send the image
+        return res.status(200).send(finalImage);
+    } catch (error) {
+        console.error('Error generating quote image:', error);
+        return res.status(500).json({
+            error: 'Failed to generate image',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
     }
-
-    // Convert canvas to buffer
-    const buffer = canvas.toBuffer('image/png');
-
-    // Set response headers
-    res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
-    
-    // Send the image
-    return res.status(200).send(buffer);
-  } catch (error) {
-    console.error('Error generating quote image:', error);
-    return res.status(500).json({ 
-      error: 'Failed to generate image',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
 } 
