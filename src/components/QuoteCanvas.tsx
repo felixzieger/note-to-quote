@@ -1,12 +1,16 @@
 import { useRef, useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import QRCode from "qrcode";
+import { toast } from "sonner";
 
 export type EventIdDisplayMode = "text" | "qrcode" | "hidden";
-export type BackgroundType = "color" | "profile" | "generated";
+export type BackgroundType = "color" | "profile";
 
 // Maximum number of characters allowed for a quote
 const MAX_QUOTE_LENGTH = 314;
+
+// Toast duration in milliseconds
+const TOAST_DURATION = 5000; // 5 seconds for toast messages
 
 interface QuoteCanvasProps {
   quote: string;
@@ -75,22 +79,28 @@ export const QuoteCanvas = ({
 
       // Clear canvas with background color or image
       if (backgroundType === "profile" && backgroundImage && backgroundLoaded) {
-        // Draw profile picture as background with a semi-transparent overlay
-        ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+        console.log("Drawing background image on canvas:", backgroundType);
 
-        // Add a semi-transparent overlay to improve text readability
-        ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      } else if (backgroundType === "generated") {
-        // For now, just use a gradient as a placeholder for the generated background
-        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-        gradient.addColorStop(0, "#f3e7e9");
-        gradient.addColorStop(0.5, "#e3eeff");
-        gradient.addColorStop(1, "#f3e7e9");
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Draw profile picture as background with a semi-transparent overlay
+        try {
+          ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+
+          // Add a semi-transparent overlay to improve text readability
+          ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        } catch (error) {
+          console.error("Error drawing background image:", error);
+          // Fallback to a simple gradient if drawing fails
+          const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+          gradient.addColorStop(0, "#f3e7e9");
+          gradient.addColorStop(0.5, "#e3eeff");
+          gradient.addColorStop(1, "#f3e7e9");
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
       } else {
         // Use solid color background
+        console.log("Drawing solid color background:", background);
         ctx.fillStyle = background;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
       }

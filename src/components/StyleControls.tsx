@@ -51,7 +51,6 @@ export const StyleControls = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="profile">Author Profile Picture</SelectItem>
-              <SelectItem value="generated">Generated Picture</SelectItem>
               <SelectItem value="color">Solid Color</SelectItem>
             </SelectContent>
           </Select>
