@@ -1,9 +1,9 @@
-
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { fetchNostrEvent } from "@/utils/nostrFetcher";
 
 interface NostrInputProps {
   onEventSubmit: (event: { content: string; author: string }) => void;
@@ -15,20 +15,37 @@ export const NostrInput = ({ onEventSubmit }: NostrInputProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!eventId.trim()) {
+      toast.error("Please enter a valid Nostr event ID");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Placeholder for actual Nostr event fetching
-      // This would be replaced with actual Nostr implementation
-      setTimeout(() => {
-        onEventSubmit({
-          content: "The best way to predict the future is to create it.",
-          author: "Satoshi Nakamoto",
-        });
-        toast.success("Event loaded successfully!");
-      }, 1000);
+      const result = await fetchNostrEvent(eventId);
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to fetch event");
+      }
+
+      if (!result.event) {
+        throw new Error("Event data is missing");
+      }
+
+      const authorName = result.profile?.displayName || result.profile?.name || "Unknown";
+
+      onEventSubmit({
+        content: result.event.content,
+        author: authorName,
+      });
+
+      toast.success("Event loaded successfully!");
+
     } catch (error) {
-      toast.error("Failed to load Nostr event");
+      console.error("Error fetching Nostr event:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to load Nostr event");
     } finally {
       setLoading(false);
     }
@@ -47,7 +64,7 @@ export const NostrInput = ({ onEventSubmit }: NostrInputProps) => {
           <Input
             value={eventId}
             onChange={(e) => setEventId(e.target.value)}
-            placeholder="Enter event ID..."
+            placeholder="note1... or nevent1... or hex ID"
             className="flex-1"
           />
           <Button type="submit" disabled={loading}>
