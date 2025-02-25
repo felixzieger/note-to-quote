@@ -23,7 +23,7 @@ export const Footer: React.FC = () => {
                             href="lightning:me@felixzieger.de"
                             className="font-medium text-primary hover:underline inline-flex items-center"
                         >
-                            ⚡ Zap me
+                            ⚡ Zap
                             <ExternalLink className="ml-1 h-3 w-3" />
                         </a>
                     </div>
