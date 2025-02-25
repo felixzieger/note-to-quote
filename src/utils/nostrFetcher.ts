@@ -26,8 +26,6 @@ export async function fetchNostrEvent(eventId: string, debug = false): Promise<N
             "wss://nos.lol",
             "wss://nostr.mom",
             "wss://relay.nostr.bg",
-            "wss://nostr.fmt.wiz.biz",
-            "wss://relay.current.fyi",
             "wss://nostr.bitcoiner.social",
             "wss://relay.snort.social",
             "wss://purplepag.es"
