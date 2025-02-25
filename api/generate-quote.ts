@@ -1,6 +1,6 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import sharp from 'sharp';
-import QRCode from 'qrcode';
+import * as QRCode from 'qrcode';
 
 // Maximum number of characters allowed for a quote
 const MAX_QUOTE_LENGTH = 314;
@@ -20,7 +20,15 @@ interface QuoteRequestParams {
     eventIdDisplayMode?: EventIdDisplayMode;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+// Use named export instead of default export
+export const config = {
+    api: {
+        bodyParser: true,
+    },
+};
+
+// Use named export instead of default export
+export async function handler(req: VercelRequest, res: VercelResponse) {
     // Only allow POST requests
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
@@ -202,4 +210,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             details: error instanceof Error ? error.message : 'Unknown error'
         });
     }
-} 
+}
+
+// Use ES module export
+export default handler; 
