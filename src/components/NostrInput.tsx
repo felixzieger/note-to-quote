@@ -19,6 +19,7 @@ export function NostrInput({ onEventSubmit }: NostrInputProps) {
     "nevent1qvzqqqqqqyqzqfd5x2fgkjaaxhq5nu4rs67fdp5gvzwdryl2qdp9rz9p0epdhd7lzm0ayv",
     "nevent1qvzqqqqqqyqzpjlww29nn7c69qwumgng5pcu4zh3f3vk97wrp5htm9nk0c82pzh0cw2ks2",
     "nevent1qvzqqqqqqyqzpkz95vv6stffy80vwg2fwsk0gx2f6c2hhcqxutghmp0sae9lzu7fwndnwx",
+    "nevent1qvzqqqqqqyqzpps6e6kafn5jvxtugpvlyk8grxzp0h2aqxeqnewewe45w93vu55u8rc6fz",
     "nevent1qvzqqqqqqyqzqdfvde2q6ewvu3junfu57syj2wv50378jmwqe8s2jww8syulmvchnkt9uv"
   ];
 
