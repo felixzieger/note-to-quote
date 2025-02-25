@@ -89,14 +89,14 @@ export const NostrInput = ({ onEventSubmit }: NostrInputProps) => {
         <div className="space-y-2">
           <h3 className="text-lg font-semibold text-foreground">Enter Nostr Event ID or URL</h3>
           <p className="text-sm text-muted-foreground">
-            Paste a Nostr event ID or client URL to generate a beautiful quote image
+            Paste a Nostr event ID or URL to generate a beautiful quote image
           </p>
         </div>
         <div className="flex gap-2">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="note1..., nevent1..., or client URL"
+            placeholder="note1..., nevent1..., https://..."
             className="flex-1"
           />
           <Button type="submit" disabled={loading}>
