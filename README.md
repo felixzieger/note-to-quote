@@ -7,11 +7,8 @@ Converts Nostr events into quote images.
 ## Development
 
 1. Clone the repository
-2. Install dependencies:
+2. Install dependencies and run development server:
    ```bash
    npm install
+   npm run dev
    ```
-3. Run the development server:
-  ```bash
-  npm run dev
-  ```
