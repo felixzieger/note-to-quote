@@ -20,17 +20,13 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Copy only the dependency files first
-COPY pyproject.toml .
+COPY . .
 
 # Install Python dependencies
 RUN pip install -e .
 
 # Install Playwright browsers
 RUN python -m playwright install chromium
-
-# Now copy the rest of the project files
-COPY . .
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
