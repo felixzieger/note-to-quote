@@ -16,6 +16,7 @@ from nostr_sdk import (
     Event,
     Timestamp,
     EventId,
+    Metadata,
 )
 from datetime import timedelta
 import time
@@ -314,6 +315,23 @@ async def run_bot():
     # Connect to relay
     await client.add_relay("wss://strfry.felixzieger.de")
     await client.connect()
+
+    # Update metadata using Metadata class
+    metadata_content = (
+        Metadata()
+        .set_name("Note to Quote Bot")
+        .set_display_name("Note to Quote")
+        .set_about(
+            "I turn Nostr notes into beautiful quote images. Mention me in a reply to a note to get a quote image!"
+        )
+        .set_website("https://note-to-quote.vercel.app")
+        .set_nip05("_@note-to-quote.vercel.app")
+    )
+
+    # Build metadata event with content
+    metadata_builder = EventBuilder.metadata(metadata_content)
+    metadata_output = await client.send_event_builder(metadata_builder)
+    print(f"Updated metadata: {metadata_output.success}")
 
     print("Bot is running and listening for mentions...")
 
