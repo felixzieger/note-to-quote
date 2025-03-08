@@ -341,10 +341,10 @@ async def run_bot():
             )
             for event in events.to_vec():
                 await handle_event(event, client, keys)
-                await asyncio.sleep(1)  # Wait a bit before processing next event
+                await asyncio.sleep(10)  # Wait a bit before processing next event
         except Exception as e:
             print(f"Error: {e}")
-            await asyncio.sleep(1)  # Wait a bit before retrying
+            await asyncio.sleep(10)  # Wait a bit before retrying
 
 
 def main():
