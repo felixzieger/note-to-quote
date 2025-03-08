@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { Shuffle, X, Plus } from "lucide-react";
 
 interface NostrInputProps {
   onEventSubmit: (event: { content: string; author: string; eventId?: string; profilePicture?: string }) => void;
+  defaultRelay?: string;
 }
 
 // Default relays that will be pre-filled
@@ -17,12 +18,38 @@ const DEFAULT_RELAYS = [
   "wss://nos.lol",
 ];
 
-export function NostrInput({ onEventSubmit }: NostrInputProps) {
+export function NostrInput({ onEventSubmit, defaultRelay }: NostrInputProps) {
   const [input, setInput] = useState("");
-  const [relays, setRelays] = useState<string[]>(DEFAULT_RELAYS);
+  const [relays, setRelays] = useState<string[]>([]);
   const [newRelay, setNewRelay] = useState("");
   const [loading, setLoading] = useState(false);
   const [showRelayInput, setShowRelayInput] = useState(false);
+
+  // Initialize relays with URL parameter if present
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlRelay = params.get('r');
+
+    if (urlRelay) {
+      let relayUrl = urlRelay;
+
+      // If URL doesn't start with any protocol, prepend wss://
+      if (!relayUrl.startsWith('wss://') && !relayUrl.startsWith('ws://')) {
+        relayUrl = `wss://${relayUrl}`;
+      }
+
+      // Convert ws:// to wss:// for security
+      if (relayUrl.startsWith('ws://')) {
+        relayUrl = `wss://${relayUrl.slice(5)}`;
+      }
+
+      setRelays([relayUrl, ...DEFAULT_RELAYS]);
+    } else if (defaultRelay) {
+      setRelays([defaultRelay, ...DEFAULT_RELAYS]);
+    } else {
+      setRelays(DEFAULT_RELAYS);
+    }
+  }, [defaultRelay]);
 
   // Example Nostr events
   const exampleEvents = [
