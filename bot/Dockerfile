@@ -26,6 +26,7 @@ COPY . .
 RUN pip install -e .
 
 # Install Playwright browsers
+# Note: Chrome isn't available for ARM on ubuntu/debian.
 RUN python -m playwright install chromium
 
 # Set environment variables
