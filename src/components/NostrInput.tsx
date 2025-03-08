@@ -4,15 +4,25 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { fetchNostrEvent } from "@/utils/nostrFetcher";
-import { Shuffle } from "lucide-react";
+import { Shuffle, X, Plus } from "lucide-react";
 
 interface NostrInputProps {
   onEventSubmit: (event: { content: string; author: string; eventId?: string; profilePicture?: string }) => void;
 }
 
+// Default relays that will be pre-filled
+const DEFAULT_RELAYS = [
+  "wss://relay.damus.io",
+  "wss://relay.nostr.band",
+  "wss://nos.lol",
+];
+
 export function NostrInput({ onEventSubmit }: NostrInputProps) {
   const [input, setInput] = useState("");
+  const [relays, setRelays] = useState<string[]>(DEFAULT_RELAYS);
+  const [newRelay, setNewRelay] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showRelayInput, setShowRelayInput] = useState(false);
 
   // Example Nostr events
   const exampleEvents = [
@@ -34,7 +44,7 @@ export function NostrInput({ onEventSubmit }: NostrInputProps) {
 
     try {
       const eventId = extractEventId(randomEvent.trim());
-      const result = await fetchNostrEvent(eventId);
+      const result = await fetchNostrEvent(eventId, false, relays[0]);
 
       if (!result.success) {
         throw new Error(result.error || "Failed to fetch event");
@@ -89,16 +99,45 @@ export function NostrInput({ onEventSubmit }: NostrInputProps) {
     return input;
   };
 
+  const handleAddRelay = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && newRelay.trim()) {
+      e.preventDefault();
+      let relayUrl = newRelay.trim();
+
+      // If URL doesn't start with any protocol, prepend wss://
+      if (!relayUrl.startsWith('wss://') && !relayUrl.startsWith('ws://')) {
+        relayUrl = `wss://${relayUrl}`;
+      }
+
+      // Convert ws:// to wss:// for security
+      if (relayUrl.startsWith('ws://')) {
+        relayUrl = `wss://${relayUrl.slice(5)}`;
+      }
+
+      if (!relays.includes(relayUrl)) {
+        setRelays([...relays, relayUrl]);
+        setShowRelayInput(false);
+      }
+      setNewRelay("");
+    } else if (e.key === 'Escape') {
+      setShowRelayInput(false);
+      setNewRelay("");
+    }
+  };
+
+  const removeRelay = (relayToRemove: string) => {
+    setRelays(relays.filter(relay => relay !== relayToRemove));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
 
     setLoading(true);
     try {
-      // Extract event ID from input (which might be a URL)
       const eventId = extractEventId(input.trim());
-
-      const result = await fetchNostrEvent(eventId);
+      // Use the first relay as primary, others as fallback
+      const result = await fetchNostrEvent(eventId, false, relays[0]);
 
       if (!result.success) {
         throw new Error(result.error || "Failed to fetch event");
@@ -147,16 +186,59 @@ export function NostrInput({ onEventSubmit }: NostrInputProps) {
         <p className="text-sm text-muted-foreground">
           Paste a Nostr event ID or URL to generate a beautiful quote image
         </p>
-        <div className="flex gap-2">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="note1..., nevent1..., https://..."
-            className="flex-1"
-          />
-          <Button type="submit" disabled={loading}>
-            {loading ? "Loading..." : "Generate"}
-          </Button>
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="note1..., nevent1..., https://..."
+              />
+            </div>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Loading..." : "Generate"}
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {relays.map((relay, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-1 bg-muted px-2 py-1 rounded-md text-sm text-muted-foreground"
+                >
+                  <span className="max-w-[200px] truncate">{relay}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeRelay(relay)}
+                    className="text-muted-foreground/50 hover:text-muted-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setShowRelayInput(true)}
+                className="h-7 w-7 rounded-md bg-muted flex items-center justify-center text-muted-foreground/50 hover:text-muted-foreground"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+
+            {showRelayInput && (
+              <div className="animate-in fade-in slide-in-from-top-1">
+                <Input
+                  value={newRelay}
+                  onChange={(e) => setNewRelay(e.target.value)}
+                  onKeyDown={handleAddRelay}
+                  placeholder="Add relay (wss://...) - Press Enter to add, Esc to cancel"
+                  className="text-sm"
+                  autoFocus
+                />
+              </div>
+            )}
+          </div>
         </div>
       </form>
     </Card>

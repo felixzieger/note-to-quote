@@ -16,11 +16,15 @@ export interface NostrFetchResult {
     };
 }
 
-export async function fetchNostrEvent(eventId: string, debug = false): Promise<NostrFetchResult> {
+export async function fetchNostrEvent(
+    eventId: string,
+    debug = false,
+    customRelay?: string
+): Promise<NostrFetchResult> {
     try {
         // Create a connection pool to Nostr relays
         const pool = new SimplePool();
-        const relays = [
+        const defaultRelays = [
             "wss://relay.damus.io",
             "wss://relay.nostr.band",
             "wss://nos.lol",
@@ -30,6 +34,11 @@ export async function fetchNostrEvent(eventId: string, debug = false): Promise<N
             "wss://relay.snort.social",
             "wss://purplepag.es"
         ];
+
+        // If customRelay is provided, use it as the first relay
+        const relays = customRelay
+            ? [customRelay, ...defaultRelays]
+            : defaultRelays;
 
         // Handle different Nostr ID formats
         let hexId: string;
