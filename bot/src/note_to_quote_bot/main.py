@@ -253,7 +253,7 @@ async def handle_event(event: Event, client: Client, keys: Keys):
                 return
 
             # Create a reply event with the quote picture
-            reply_content = f"Here's your quote picture:\n{image_url}"
+            reply_content = image_url
         except Exception as e:
             if "Event not found" in str(e):
                 reply_content = "Sorry, I couldn't find the event you want to quote"
