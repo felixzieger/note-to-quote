@@ -8,6 +8,8 @@ from nostr_sdk import (
     EventId,
     Filter,
     Timestamp,
+    Tag,
+    PublicKey,
 )
 from datetime import timedelta
 
@@ -39,10 +41,11 @@ async def post_test_event(bot_pubkey: str):
     original_event = events.to_vec()[0]
 
     # Create and send a reply that mentions the bot
-    reply_content = f"Hello @{bot_pubkey}! Please quote the note above."
+    mention_tag = Tag.public_key(PublicKey.parse(bot_pubkey))
+    reply_content = f"Hello {bot_pubkey}! Please quote the note above."
     reply_builder = EventBuilder.text_note_reply(
         content=reply_content, reply_to=original_event
-    )
+    ).tags([mention_tag])
     reply_output = await client.send_event_builder(reply_builder)
     print(f"Posted reply: {reply_output.id.to_bech32()}")
     print(f"Sent to: {reply_output.success}")

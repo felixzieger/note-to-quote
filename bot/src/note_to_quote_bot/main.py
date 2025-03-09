@@ -26,17 +26,6 @@ import base64
 processed_events = {}
 
 
-def cleanup_old_events():
-    """Remove events older than 10 minutes from the processed_events dictionary"""
-    current_time = time.time()
-    global processed_events
-    processed_events = {
-        event_id: timestamp
-        for event_id, timestamp in processed_events.items()
-        if current_time - timestamp < 600  # 10 minutes in seconds
-    }
-
-
 async def get_parent_note(client: Client, event: Event) -> str:
     """Fetch the parent note of the given event."""
     # Get the reply_to event ID from the event's tags
@@ -335,31 +324,28 @@ async def run_bot():
 
     print("Bot is running and listening for mentions...")
 
+    current_time = int(time.time())
+    five_minutes_ago = Timestamp.from_secs(current_time - (5 * 60))
+
+    filter = (
+        Filter()
+        .kinds([Kind.from_std(KindStandard.TEXT_NOTE)])
+        .since(five_minutes_ago)
+        .pubkey(keys.public_key())
+    )
+
+    await client.subscribe(filter)
+
     while True:
         try:
-            # Clean up old events before processing new ones
-            cleanup_old_events()
-
-            # Update the timestamp to last 5 minutes from now
-            current_time = int(time.time())
-            five_minutes_ago = Timestamp.from_secs(current_time - (5 * 60))
-
-            # Create updated filter with new timestamp
-            filter = (
-                Filter()
-                .kinds([Kind.from_std(KindStandard.TEXT_NOTE)])
-                .since(five_minutes_ago)
-            )
-
-            # Subscribe to events with updated filter
-            await client.subscribe(filter)
 
             events = await client.fetch_events(
                 filter=filter, timeout=timedelta(seconds=10)
             )
             for event in events.to_vec():
                 await handle_event(event, client, keys)
-                await asyncio.sleep(10)  # Wait a bit before processing next event
+
+            await asyncio.sleep(10)
         except Exception as e:
             print(f"Error: {e}")
             await asyncio.sleep(10)  # Wait a bit before retrying
