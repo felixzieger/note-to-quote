@@ -334,6 +334,7 @@ async def run_bot():
         .set_nip05("_@note-to-quote.vercel.app")
         .set_picture("https://note-to-quote.vercel.app/me.png")
         .set_custom_field("bot", JsonValue.BOOL(True))
+        .set_lud16("fallingtree17238@getalby.com")
     )
 
     # Build metadata event with content
