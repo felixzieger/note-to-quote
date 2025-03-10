@@ -345,7 +345,7 @@ async def setup_metadata(keys: Keys):
     print(f"Updated relay list: {relay_list_output.success}")
 
     # Clean up
-    metadata_client.disconnect()
+    await metadata_client.disconnect()
     await metadata_client.shutdown()
 
 
@@ -353,7 +353,7 @@ async def run_bot():
     secret_key = os.getenv("BOT_SECRET_KEY")
     if not secret_key:
         raise ValueError("BOT_SECRET_KEY environment variable is not set")
-    
+
     keys = Keys.parse(secret_key=secret_key)
 
     await setup_metadata(keys)
