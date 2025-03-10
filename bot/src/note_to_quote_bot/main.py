@@ -17,6 +17,7 @@ from nostr_sdk import (
     Timestamp,
     EventId,
     Metadata,
+    JsonValue,
 )
 from datetime import timedelta
 import time
@@ -24,6 +25,17 @@ import base64
 
 # Dictionary to track processed event IDs with their timestamps
 processed_events = {}
+
+BROADCAST_RELAYS = [
+    "wss://relay.damus.io",
+    "wss://relay.nostr.band",
+    "wss://nos.lol",
+    "wss://nostr.mom",
+    "wss://relay.nostr.bg",
+    "wss://nostr.bitcoiner.social",
+    "wss://relay.snort.social",
+    "wss://purplepag.es",
+]
 
 
 async def get_parent_note(client: Client, event: Event) -> str:
@@ -302,19 +314,12 @@ async def run_bot():
         )
 
     # Connect to relay(s)
-
     # This will be our only write relay for the beginning
     await client.add_relay("wss://strfry.felixzieger.de")
 
     # Broadcast metadata to many relays
-    await client.add_relay("wss://relay.damus.io")
-    await client.add_relay("wss://relay.nostr.band")
-    await client.add_relay("wss://nos.lol")
-    await client.add_relay("wss://nostr.mom")
-    await client.add_relay("wss://relay.nostr.bg")
-    await client.add_relay("wss://nostr.bitcoiner.social")
-    await client.add_relay("wss://relay.snort.social")
-    await client.add_relay("wss://purplepag.es")
+    for relay in BROADCAST_RELAYS:
+        await client.add_relay(relay)
     await client.connect()
 
     # Update metadata using Metadata class
@@ -328,31 +333,17 @@ async def run_bot():
         .set_website("https://note-to-quote.vercel.app")
         .set_nip05("_@note-to-quote.vercel.app")
         .set_picture("https://note-to-quote.vercel.app/me.png")
+        .set_custom_field("bot", JsonValue.BOOL(True))
     )
 
     # Build metadata event with content
     metadata_builder = EventBuilder.metadata(metadata_content)
     metadata_output = await client.send_event_builder(metadata_builder)
-    print(f"Updated meadata: {metadata_output.success}")
+    print(f"Updated metadata: {metadata_output.success}")
 
-    # Do not write anything but metadata event to those relays
-    await client.remove_relay("wss://relay.damus.io")
-    await client.remove_relay("wss://relay.nostr.band")
-    await client.remove_relay("wss://nos.lol")
-    await client.remove_relay("wss://nostr.mom")
-    await client.remove_relay("wss://relay.nostr.bg")
-    await client.remove_relay("wss://nostr.bitcoiner.social")
-    await client.remove_relay("wss://relay.snort.social")
-    await client.remove_relay("wss://purplepag.es")
-    # Still listen for mentions though
-    # await client.add_read_relay("wss://relay.damus.io")
-    # await client.add_read_relay("wss://relay.nostr.band")
-    # await client.add_read_relay("wss://nos.lol")
-    # await client.add_read_relay("wss://nostr.mom")
-    # await client.add_read_relay("wss://relay.nostr.bg")
-    # await client.add_read_relay("wss://nostr.bitcoiner.social")
-    # await client.add_read_relay("wss://relay.snort.social")
-    # await client.add_read_relay("wss://purplepag.es")
+    for relay in BROADCAST_RELAYS:
+        await client.remove_relay(relay)
+        await client.add_read_relay(relay)
 
     print("Bot is running and listening for mentions...")
 
