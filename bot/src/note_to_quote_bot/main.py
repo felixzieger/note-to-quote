@@ -218,7 +218,39 @@ async def generate_quote_picture(text: str, event_id: str) -> str:
             await browser.close()
 
 
-async def handle_event(event: Event, client: Client, keys: Keys):
+async def get_user_relays(event: Event) -> tuple[list[str], list[str]]:
+    """Extract write and read relays from the event tags."""
+    write_relays = set()
+    read_relays = set()
+
+    # First add our default relays as fallback
+    write_relays.update(WRITE_RELAYS)
+    read_relays.update(READ_RELAYS)
+
+    # Extract relays from event tags
+    for tag in event.tags().to_vec():
+        if tag.as_vec()[0] == "r":  # 'r' tag indicates a relay
+            relay_url = tag.as_vec()[1]
+            # If there's a marker for read/write, use it
+            if len(tag.as_vec()) > 2:
+                marker = tag.as_vec()[2]
+                if marker == "write":
+                    write_relays.add(relay_url)
+                elif marker == "read":
+                    read_relays.add(relay_url)
+                # If no marker or "read+write", add to both
+                else:
+                    write_relays.add(relay_url)
+                    read_relays.add(relay_url)
+            else:
+                # If no marker specified, assume it's both read and write
+                write_relays.add(relay_url)
+                read_relays.add(relay_url)
+
+    return list(write_relays), list(read_relays)
+
+
+async def handle_event(event: Event, keys: Keys):
     event_id = event.id().to_bech32()
 
     # Skip if we've already processed this event
@@ -233,71 +265,92 @@ async def handle_event(event: Event, client: Client, keys: Keys):
     if keys.public_key().to_bech32() in event.content():
         print(f"{event_id}: Processing event")
 
-        # Create events directory if it doesn't exist
-        events_dir = Path("events")
-        events_dir.mkdir(exist_ok=True)
+        # Get user's relays
+        write_relays, read_relays = await get_user_relays(event)
 
-        # Check if we've already saved this event
-        event_file = events_dir / f"reply_to_{event_id}.json"
-        if event_file.exists():
-            print(f"{event_id}: Reply to event already saved, skipping...")
-            processed_events[event_id] = time.time()
-            return
+        # Create a new client for this specific interaction
+        signer = NostrSigner.keys(keys=keys)
+        reply_client = Client(signer=signer)
 
-        # Get the parent note
-        parent_content = await get_parent_note(client, event)
-        if not parent_content:
-            print(f"{event_id}: No parent note found")
-            processed_events[event_id] = time.time()
-            return
+        # Connect to the user's relays
+        for relay in write_relays:
+            await reply_client.add_relay(relay)
+        for relay in read_relays:
+            await reply_client.add_read_relay(relay)
+
+        await reply_client.connect()
 
         try:
-            # Get the parent event ID from the event's tags
-            parent_id = None
-            for tag in event.tags().to_vec():
-                if tag.as_vec()[0] == "e":  # 'e' tag indicates a reply
-                    parent_id = tag.as_vec()[1]
-                    break
+            # Create events directory if it doesn't exist
+            events_dir = Path("events")
+            events_dir.mkdir(exist_ok=True)
 
-            if not parent_id:
-                print(f"{event_id}: No parent event ID found in tags")
+            # Check if we've already saved this event
+            event_file = events_dir / f"reply_to_{event_id}.json"
+            if event_file.exists():
+                print(f"{event_id}: Reply to event already saved, skipping...")
+                processed_events[event_id] = time.time()
                 return
 
-            # Generate quote picture using the parent event ID
-            image_url = await generate_quote_picture(parent_content, parent_id)
-            if not image_url:
-                print(f"{event_id}: Failed to generate quote picture")
+            # Get the parent note
+            parent_content = await get_parent_note(reply_client, event)
+            if not parent_content:
+                print(f"{event_id}: No parent note found")
+                processed_events[event_id] = time.time()
                 return
 
-            # Create a reply event with the quote picture
-            reply_content = image_url
-        except Exception as e:
-            if "Event not found" in str(e):
-                reply_content = "Sorry, I couldn't find the event you want to quote"
-            else:
-                print(f"{event_id}: Failed to generate quote picture: {e}")
-                return
+            try:
+                # Get the parent event ID from the event's tags
+                parent_id = None
+                for tag in event.tags().to_vec():
+                    if tag.as_vec()[0] == "e":  # 'e' tag indicates a reply
+                        parent_id = tag.as_vec()[1]
+                        break
 
-        builder = EventBuilder.text_note(reply_content)
+                if not parent_id:
+                    print(f"{event_id}: No parent event ID found in tags")
+                    return
 
-        # Add reference to the original event
-        builder = builder.text_note_reply(content=reply_content, reply_to=event)
+                # Generate quote picture using the parent event ID
+                image_url = await generate_quote_picture(parent_content, parent_id)
+                if not image_url:
+                    print(f"{event_id}: Failed to generate quote picture")
+                    return
 
-        # Create reply to the event and store it locally
-        reply_event = await client.sign_event_builder(builder=builder)
-        reply_event_json = reply_event.as_json()
+                # Create a reply event with the quote picture
+                reply_content = image_url
+            except Exception as e:
+                if "Event not found" in str(e):
+                    reply_content = "Sorry, I couldn't find the event you want to quote"
+                else:
+                    print(f"{event_id}: Failed to generate quote picture: {e}")
+                    return
 
-        # Save reply event JSON to file using its ID as filename
-        with open(event_file, "w") as f:
-            json.dump(reply_event_json, f, indent=2)
-        print(f"{event_id}: Saved reply locally")
+            builder = EventBuilder.text_note(reply_content)
 
-        # Send the reply
-        output = await client.send_event_builder(builder)
-        print(f"{event_id}: Replied to event on {output.success}")
+            # Add reference to the original event
+            builder = builder.text_note_reply(content=reply_content, reply_to=event)
 
-        # Mark this event as processed with current timestamp
-        processed_events[event_id] = time.time()
+            # Create reply to the event and store it locally
+            reply_event = await reply_client.sign_event_builder(builder=builder)
+            reply_event_json = reply_event.as_json()
+
+            # Save reply event JSON to file using its ID as filename
+            with open(event_file, "w") as f:
+                json.dump(reply_event_json, f, indent=2)
+            print(f"{event_id}: Saved reply locally")
+
+            # Send the reply using the specific client
+            output = await reply_client.send_event_builder(builder)
+            print(f"{event_id}: Replied to event on {output.success}")
+
+            # Mark this event as processed with current timestamp
+            processed_events[event_id] = time.time()
+
+        finally:
+            # Clean up the client
+            await reply_client.disconnect()
+            await reply_client.shutdown()
 
 
 async def setup_metadata(keys: Keys):
@@ -387,7 +440,7 @@ async def run_bot():
                 filter=filter, timeout=timedelta(seconds=10)
             )
             for event in events.to_vec():
-                await handle_event(event, client, keys)
+                await handle_event(event, keys)
 
             await asyncio.sleep(10)
         except Exception as e:
