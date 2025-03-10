@@ -327,9 +327,9 @@ async def run_bot():
     metadata_content = (
         Metadata()
         .set_name("Note to Quote Bot")
-        .set_display_name("Note to Quote")
+        .set_display_name("Note to Quote Bot")
         .set_about(
-            "I turn Nostr notes into beautiful quote images. Mention me in a reply to a note to get a quote image!"
+            "I turn Nostr notes into quote images. Mention me in a reply to get a quote image!"
         )
         .set_website("https://note-to-quote.vercel.app")
         .set_nip05("_@note-to-quote.vercel.app")
