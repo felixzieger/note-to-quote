@@ -300,32 +300,15 @@ async def handle_event(event: Event, client: Client, keys: Keys):
         processed_events[event_id] = time.time()
 
 
-async def run_bot():
-    # Read secret key from environment variable
-    secret_key = os.getenv("BOT_SECRET_KEY")
-    if not secret_key:
-        raise ValueError("BOT_SECRET_KEY environment variable is not set")
-
-    # Create keys from secret key
-    keys = Keys.parse(secret_key=secret_key)
+async def setup_metadata(keys: Keys):
+    """Set up bot metadata and relay list using a dedicated client."""
     signer = NostrSigner.keys(keys=keys)
-    client = Client(signer=signer)
+    metadata_client = Client(signer=signer)
 
-    # Verify public key matches
-    expected_pubkey = os.getenv("BOT_PUBLIC_KEY")
-    if expected_pubkey and expected_pubkey != keys.public_key().to_bech32():
-        raise ValueError(
-            "BOT_PUBLIC_KEY does not match the public key derived from BOT_SECRET_KEY"
-        )
-
-    # Connect to relay(s)
-    for relay in WRITE_RELAYS:
-        await client.add_relay(relay)
-
-    # Broadcast metadata to many relays
-    for relay in READ_RELAYS:
-        await client.add_relay(relay)
-    await client.connect()
+    # Connect to all relays for metadata broadcast
+    for relay in WRITE_RELAYS + READ_RELAYS:
+        await metadata_client.add_relay(relay)
+    await metadata_client.connect()
 
     # Update metadata using Metadata class
     metadata_content = (
@@ -344,7 +327,7 @@ async def run_bot():
 
     # Build metadata event with content
     metadata_builder = EventBuilder.metadata(metadata_content)
-    metadata_output = await client.send_event_builder(metadata_builder)
+    metadata_output = await metadata_client.send_event_builder(metadata_builder)
     print(f"Updated metadata: {metadata_output.success}")
 
     # Create NIP-65 relay list event
@@ -358,12 +341,33 @@ async def run_bot():
 
     # Build and send relay list event
     relay_list_builder = EventBuilder.relay_list(relays_dict)
-    relay_list_output = await client.send_event_builder(relay_list_builder)
+    relay_list_output = await metadata_client.send_event_builder(relay_list_builder)
     print(f"Updated relay list: {relay_list_output.success}")
 
+    # Clean up
+    metadata_client.disconnect()
+    await metadata_client.shutdown()
+
+
+async def run_bot():
+    secret_key = os.getenv("BOT_SECRET_KEY")
+    if not secret_key:
+        raise ValueError("BOT_SECRET_KEY environment variable is not set")
+    
+    keys = Keys.parse(secret_key=secret_key)
+
+    await setup_metadata(keys)
+
+    # Connect to relay(s)
+    signer = NostrSigner.keys(keys=keys)
+    client = Client(signer=signer)
+    for relay in WRITE_RELAYS:
+        await client.add_relay(relay)
+
     for relay in READ_RELAYS:
-        await client.remove_relay(relay)
         await client.add_read_relay(relay)
+
+    await client.connect()
 
     print("Bot is running and listening for mentions...")
 
@@ -377,11 +381,8 @@ async def run_bot():
         .pubkey(keys.public_key())
     )
 
-    await client.subscribe(filter)
-
     while True:
         try:
-
             events = await client.fetch_events(
                 filter=filter, timeout=timedelta(seconds=10)
             )
