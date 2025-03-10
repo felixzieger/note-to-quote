@@ -7,14 +7,14 @@ export const Footer: React.FC = () => {
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                     <div className="text-sm text-muted-foreground">
-                        Created by{" "}
+                        Available as a bot on {" "}
                         <a
-                            href="https://nosta.me/npub1we8qkts8j9znh3ma0dpa77ys2zm4rrulp6r5zuqn2pp6pn3jfamsy7c6je"
+                            href="https://nosta.me/npub1z8wzhl5u4d5s6cd4k2jml4r4ymum3exyewz4gpk2n0qr5tt9dsjs497l04"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="font-medium text-primary hover:underline inline-flex items-center"
                         >
-                            Felix
+                            Nostr
                             <ExternalLink className="ml-1 h-3 w-3" />
                         </a>
                     </div>
