@@ -18,6 +18,7 @@ from nostr_sdk import (
     EventId,
     Metadata,
     JsonValue,
+    RelayMetadata,
 )
 from datetime import timedelta
 import time
@@ -341,6 +342,19 @@ async def run_bot():
     metadata_builder = EventBuilder.metadata(metadata_content)
     metadata_output = await client.send_event_builder(metadata_builder)
     print(f"Updated metadata: {metadata_output.success}")
+
+    # Create NIP-65 relay list event
+    relays_dict = {
+        "wss://strfry.felixzieger.de": RelayMetadata.WRITE,  # Our main relay
+    }
+    # Add read-only relays
+    for relay in BROADCAST_RELAYS:
+        relays_dict[relay] = RelayMetadata.READ
+
+    # Build and send relay list event
+    relay_list_builder = EventBuilder.relay_list(relays_dict)
+    relay_list_output = await client.send_event_builder(relay_list_builder)
+    print(f"Updated relay list: {relay_list_output.success}")
 
     for relay in BROADCAST_RELAYS:
         await client.remove_relay(relay)
