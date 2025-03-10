@@ -27,7 +27,11 @@ import base64
 # Dictionary to track processed event IDs with their timestamps
 processed_events = {}
 
-BROADCAST_RELAYS = [
+WRITE_RELAYS = [
+    "wss://strfry.felixzieger.de",
+]
+
+READ_RELAYS = [
     "wss://relay.damus.io",
     "wss://relay.nostr.band",
     "wss://nos.lol",
@@ -315,11 +319,11 @@ async def run_bot():
         )
 
     # Connect to relay(s)
-    # This will be our only write relay for the beginning
-    await client.add_relay("wss://strfry.felixzieger.de")
+    for relay in WRITE_RELAYS:
+        await client.add_relay(relay)
 
     # Broadcast metadata to many relays
-    for relay in BROADCAST_RELAYS:
+    for relay in READ_RELAYS:
         await client.add_relay(relay)
     await client.connect()
 
@@ -344,11 +348,12 @@ async def run_bot():
     print(f"Updated metadata: {metadata_output.success}")
 
     # Create NIP-65 relay list event
-    relays_dict = {
-        "wss://strfry.felixzieger.de": RelayMetadata.WRITE,  # Our main relay
-    }
+    relays_dict = {}
+    # Add write relays
+    for relay in WRITE_RELAYS:
+        relays_dict[relay] = RelayMetadata.WRITE
     # Add read-only relays
-    for relay in BROADCAST_RELAYS:
+    for relay in READ_RELAYS:
         relays_dict[relay] = RelayMetadata.READ
 
     # Build and send relay list event
@@ -356,7 +361,7 @@ async def run_bot():
     relay_list_output = await client.send_event_builder(relay_list_builder)
     print(f"Updated relay list: {relay_list_output.success}")
 
-    for relay in BROADCAST_RELAYS:
+    for relay in READ_RELAYS:
         await client.remove_relay(relay)
         await client.add_read_relay(relay)
 
