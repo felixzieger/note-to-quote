@@ -301,8 +301,20 @@ async def run_bot():
             "BOT_PUBLIC_KEY does not match the public key derived from BOT_SECRET_KEY"
         )
 
-    # Connect to relay
+    # Connect to relay(s)
+
+    # This will be our only write relay for the beginning
     await client.add_relay("wss://strfry.felixzieger.de")
+
+    # Broadcast metadata to many relays
+    await client.add_relay("wss://relay.damus.io")
+    await client.add_relay("wss://relay.nostr.band")
+    await client.add_relay("wss://nos.lol")
+    await client.add_relay("wss://nostr.mom")
+    await client.add_relay("wss://relay.nostr.bg")
+    await client.add_relay("wss://nostr.bitcoiner.social")
+    await client.add_relay("wss://relay.snort.social")
+    await client.add_relay("wss://purplepag.es")
     await client.connect()
 
     # Update metadata using Metadata class
@@ -315,12 +327,32 @@ async def run_bot():
         )
         .set_website("https://note-to-quote.vercel.app")
         .set_nip05("_@note-to-quote.vercel.app")
+        .set_picture("https://note-to-quote.vercel.app/me.png")
     )
 
     # Build metadata event with content
     metadata_builder = EventBuilder.metadata(metadata_content)
     metadata_output = await client.send_event_builder(metadata_builder)
-    print(f"Updated metadata: {metadata_output.success}")
+    print(f"Updated meadata: {metadata_output.success}")
+
+    # Do not write anything but metadata event to those relays
+    await client.remove_relay("wss://relay.damus.io")
+    await client.remove_relay("wss://relay.nostr.band")
+    await client.remove_relay("wss://nos.lol")
+    await client.remove_relay("wss://nostr.mom")
+    await client.remove_relay("wss://relay.nostr.bg")
+    await client.remove_relay("wss://nostr.bitcoiner.social")
+    await client.remove_relay("wss://relay.snort.social")
+    await client.remove_relay("wss://purplepag.es")
+    # Still listen for mentions though
+    # await client.add_read_relay("wss://relay.damus.io")
+    # await client.add_read_relay("wss://relay.nostr.band")
+    # await client.add_read_relay("wss://nos.lol")
+    # await client.add_read_relay("wss://nostr.mom")
+    # await client.add_read_relay("wss://relay.nostr.bg")
+    # await client.add_read_relay("wss://nostr.bitcoiner.social")
+    # await client.add_read_relay("wss://relay.snort.social")
+    # await client.add_read_relay("wss://purplepag.es")
 
     print("Bot is running and listening for mentions...")
 
