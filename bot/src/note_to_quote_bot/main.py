@@ -424,21 +424,22 @@ async def run_bot():
 
     print("Bot is running and listening for mentions...")
 
-    current_time = int(time.time())
-    five_minutes_ago = Timestamp.from_secs(current_time - (5 * 60))
-
     filter = (
         Filter()
         .kinds([Kind.from_std(KindStandard.TEXT_NOTE)])
-        .since(five_minutes_ago)
         .pubkey(keys.public_key())
     )
 
     while True:
         try:
+            current_time = int(time.time())
+            two_minutes_ago = Timestamp.from_secs(current_time - (2 * 60))
+            filter = filter.since(two_minutes_ago)
+
             events = await client.fetch_events(
                 filter=filter, timeout=timedelta(seconds=10)
             )
+            print(f"Received {events.len()} events")
             for event in events.to_vec():
                 await handle_event(event, keys)
 
