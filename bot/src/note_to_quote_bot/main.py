@@ -276,17 +276,19 @@ async def handle_event(event: Event, keys: Keys):
     print(f"{event_id}: Processing event")
 
     # Get user's relays
-    write_relays, read_relays = await get_user_relays(event)
+    users_write_relays, users_read_relays = await get_user_relays(event)
 
     # Create a new client for this specific interaction
     signer = NostrSigner.keys(keys=keys)
     reply_client = Client(signer=signer)
 
     # Connect to the user's relays
-    for relay in write_relays:
-        await reply_client.add_relay(relay)
-    for relay in read_relays:
-        await reply_client.add_read_relay(relay)
+    for users_write_relay in users_write_relays:
+        # The user is writing to us, so we need to read from their write relays
+        await reply_client.add_read_relay(users_write_relay)
+    for users_read_relay in users_read_relays:
+        # The user is reading from us, so we need to write to their read relays
+        await reply_client.add_write_relay(users_read_relay)
 
     await reply_client.connect()
 
