@@ -4,7 +4,13 @@ set dotenv-required
 # Bump version: increment minor version, create and push git tag
 bump_version:
     #!/usr/bin/env sh
-    echo "Bumping version in Docsy repo"
+    # Check for uncommitted changes in Nix repo
+    if [ -n "$(cd "${NIXCONFIG_REPO_PATH}" && git status --porcelain)" ]; then
+        echo "Error: There are uncommitted changes in the Nix config repo"
+        exit 1
+    fi
+
+    echo "Bumping version in note-to-quote repo"
     CURRENT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0")
     MAJOR=$(echo $CURRENT_TAG | cut -d. -f1)
     MINOR=$(echo $CURRENT_TAG | cut -d. -f2)
