@@ -94,7 +94,17 @@ async def upload_to_imgbb(image_path: str) -> str:
             return result["data"]["url"]
 
 
-async def generate_quote_picture(text: str, event_id: str) -> str:
+async def get_parent_relay(event: Event) -> str:
+    """Extract a relay URL from the parent event's tags."""
+    for tag in event.tags().to_vec():
+        if tag.as_vec()[0] == "r":  # 'r' tag indicates a relay
+            return tag.as_vec()[1]
+    # If no relay found in tags, return a default relay
+    print("No relay found in tags, returning default relay")
+    return "relay.damus.io"
+
+
+async def generate_quote_picture(text: str, event_id: str, relay_url: str) -> str:
     """Generate a quote picture using the note-to-quote website and upload it to imgBB."""
     # Create images directory if it doesn't exist
     images_dir = Path("images")
@@ -125,9 +135,9 @@ async def generate_quote_picture(text: str, event_id: str) -> str:
             page.on("pageerror", lambda err: print(f"Browser error: {err}"))
 
             print(f"Navigating to website...")
-            # Navigate to the website with timeout
+            # Navigate to the website with relay parameter
             await page.goto(
-                "https://note-to-quote.vercel.app/?r=strfry.felixzieger.de",
+                f"https://note-to-quote.vercel.app/?r={relay_url}",
                 timeout=30000,
             )
 
@@ -309,8 +319,15 @@ async def handle_event(event: Event, keys: Keys):
                 print(f"{event_id}: No parent event ID found in tags")
                 return
 
-            # Generate quote picture using the parent event ID
-            image_url = await generate_quote_picture(parent_content, parent_id)
+            # Get a relay URL from the event's tags
+            relay_url = await get_parent_relay(event)
+            # Remove wss:// prefix if present
+            relay_url = relay_url.replace("wss://", "")
+
+            # Generate quote picture using the parent event ID and relay
+            image_url = await generate_quote_picture(
+                parent_content, parent_id, relay_url
+            )
             if not image_url:
                 print(f"{event_id}: Failed to generate quote picture")
                 return
