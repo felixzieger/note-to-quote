@@ -261,96 +261,94 @@ async def handle_event(event: Event, keys: Keys):
     if event.author().to_bech32() == keys.public_key().to_bech32():
         return
 
-    # Check if the event mentions our public key
-    if keys.public_key().to_bech32() in event.content():
-        print(f"{event_id}: Processing event")
+    print(f"{event_id}: Processing event")
 
-        # Get user's relays
-        write_relays, read_relays = await get_user_relays(event)
+    # Get user's relays
+    write_relays, read_relays = await get_user_relays(event)
 
-        # Create a new client for this specific interaction
-        signer = NostrSigner.keys(keys=keys)
-        reply_client = Client(signer=signer)
+    # Create a new client for this specific interaction
+    signer = NostrSigner.keys(keys=keys)
+    reply_client = Client(signer=signer)
 
-        # Connect to the user's relays
-        for relay in write_relays:
-            await reply_client.add_relay(relay)
-        for relay in read_relays:
-            await reply_client.add_read_relay(relay)
+    # Connect to the user's relays
+    for relay in write_relays:
+        await reply_client.add_relay(relay)
+    for relay in read_relays:
+        await reply_client.add_read_relay(relay)
 
-        await reply_client.connect()
+    await reply_client.connect()
+
+    try:
+        # Create events directory if it doesn't exist
+        events_dir = Path("events")
+        events_dir.mkdir(exist_ok=True)
+
+        # Check if we've already saved this event
+        event_file = events_dir / f"reply_to_{event_id}.json"
+        if event_file.exists():
+            print(f"{event_id}: Reply to event already saved, skipping...")
+            processed_events[event_id] = time.time()
+            return
+
+        # Get the parent note
+        parent_content = await get_parent_note(reply_client, event)
+        if not parent_content:
+            print(f"{event_id}: No parent note found")
+            processed_events[event_id] = time.time()
+            return
 
         try:
-            # Create events directory if it doesn't exist
-            events_dir = Path("events")
-            events_dir.mkdir(exist_ok=True)
+            # Get the parent event ID from the event's tags
+            parent_id = None
+            for tag in event.tags().to_vec():
+                if tag.as_vec()[0] == "e":  # 'e' tag indicates a reply
+                    parent_id = tag.as_vec()[1]
+                    break
 
-            # Check if we've already saved this event
-            event_file = events_dir / f"reply_to_{event_id}.json"
-            if event_file.exists():
-                print(f"{event_id}: Reply to event already saved, skipping...")
-                processed_events[event_id] = time.time()
+            if not parent_id:
+                print(f"{event_id}: No parent event ID found in tags")
                 return
 
-            # Get the parent note
-            parent_content = await get_parent_note(reply_client, event)
-            if not parent_content:
-                print(f"{event_id}: No parent note found")
-                processed_events[event_id] = time.time()
+            # Generate quote picture using the parent event ID
+            image_url = await generate_quote_picture(parent_content, parent_id)
+            if not image_url:
+                print(f"{event_id}: Failed to generate quote picture")
                 return
 
-            try:
-                # Get the parent event ID from the event's tags
-                parent_id = None
-                for tag in event.tags().to_vec():
-                    if tag.as_vec()[0] == "e":  # 'e' tag indicates a reply
-                        parent_id = tag.as_vec()[1]
-                        break
+            # Create a reply event with the quote picture
+            reply_content = image_url
+        except Exception as e:
+            if "Event not found" in str(e):
+                reply_content = "Sorry, I couldn't find the event you want to quote"
+            else:
+                print(f"{event_id}: Failed to generate quote picture: {e}")
+                return
 
-                if not parent_id:
-                    print(f"{event_id}: No parent event ID found in tags")
-                    return
+        builder = EventBuilder.text_note(reply_content)
 
-                # Generate quote picture using the parent event ID
-                image_url = await generate_quote_picture(parent_content, parent_id)
-                if not image_url:
-                    print(f"{event_id}: Failed to generate quote picture")
-                    return
+        # Add reference to the original event
+        builder = builder.text_note_reply(content=reply_content, reply_to=event)
 
-                # Create a reply event with the quote picture
-                reply_content = image_url
-            except Exception as e:
-                if "Event not found" in str(e):
-                    reply_content = "Sorry, I couldn't find the event you want to quote"
-                else:
-                    print(f"{event_id}: Failed to generate quote picture: {e}")
-                    return
+        # Create reply to the event and store it locally
+        reply_event = await reply_client.sign_event_builder(builder=builder)
+        reply_event_json = reply_event.as_json()
 
-            builder = EventBuilder.text_note(reply_content)
+        # Save reply event JSON to file using its ID as filename
+        with open(event_file, "w") as f:
+            json.dump(reply_event_json, f, indent=2)
+        print(f"{event_id}: Saved reply locally")
 
-            # Add reference to the original event
-            builder = builder.text_note_reply(content=reply_content, reply_to=event)
+        # Send the reply using the specific client
+        output = await reply_client.send_event_builder(builder)
+        print(f"{event_id}: Replied to event on {output.success}")
 
-            # Create reply to the event and store it locally
-            reply_event = await reply_client.sign_event_builder(builder=builder)
-            reply_event_json = reply_event.as_json()
+        # Mark this event as processed with current timestamp
+        processed_events[event_id] = time.time()
 
-            # Save reply event JSON to file using its ID as filename
-            with open(event_file, "w") as f:
-                json.dump(reply_event_json, f, indent=2)
-            print(f"{event_id}: Saved reply locally")
-
-            # Send the reply using the specific client
-            output = await reply_client.send_event_builder(builder)
-            print(f"{event_id}: Replied to event on {output.success}")
-
-            # Mark this event as processed with current timestamp
-            processed_events[event_id] = time.time()
-
-        finally:
-            # Clean up the client
-            await reply_client.disconnect()
-            await reply_client.shutdown()
+    finally:
+        # Clean up the client
+        await reply_client.disconnect()
+        await reply_client.shutdown()
 
 
 async def setup_metadata(keys: Keys):
