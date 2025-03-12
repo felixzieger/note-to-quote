@@ -19,6 +19,8 @@ from nostr_sdk import (
     Metadata,
     JsonValue,
     RelayMetadata,
+    Tag,
+    PublicKey,
 )
 from datetime import timedelta
 import time
@@ -332,15 +334,16 @@ async def handle_event(event: Event, keys: Keys):
                 print(f"{event_id}: Failed to generate quote picture")
                 return
 
-            # Create a reply event with the quote picture
-            reply_content = image_url
+            # Create a reply event with the quote picture and mention the requester
+            requester_pubkey = event.author().to_bech32()
+            reply_content = f"{requester_pubkey} \n\n{image_url}"
         except Exception as e:
             if "Event not found" in str(e):
-                reply_content = "Sorry, I couldn't find the event you want to quote"
+                requester_pubkey = event.author().to_bech32()
+                reply_content = f"{requester_pubkey} Sorry, I couldn't find the event you want to quote"
             else:
                 print(f"{event_id}: Failed to generate quote picture: {e}")
                 return
-
         builder = EventBuilder.text_note(reply_content)
 
         # Add reference to the original event
