@@ -46,10 +46,16 @@ READ_RELAYS = [
 
 
 async def get_parent_note(client: Client, event: Event) -> str:
-    """Fetch the parent note of the given event."""
+    """Fetch the parent note of the given event.
+    
+    If the event has an e-tag, fetch that parent event.
+    If no parent is found (this is the root of a conversation), return this event's content.
+    """
     # Get the reply_to event ID from the event's tags
+    has_e_tag = False
     for tag in event.tags().to_vec():
         if tag.as_vec()[0] == "e":  # 'e' tag indicates a reply
+            has_e_tag = True
             parent_id = EventId.parse(tag.as_vec()[1])
             # Create a filter to fetch the parent event
             filter = Filter().ids([parent_id])
@@ -58,6 +64,12 @@ async def get_parent_note(client: Client, event: Event) -> str:
             )
             if events.len() > 0:
                 return events.to_vec()[0].content()
+    
+    # If no e-tag was found or parent event couldn't be fetched,
+    # this is the root of a conversation, so return this event's content
+    if not has_e_tag:
+        return event.content()
+    
     return None
 
 
@@ -304,22 +316,28 @@ async def handle_event(event: Event, keys: Keys):
             processed_events[event_id] = time.time()
             return
 
-        # Get the parent note
+        # Get the parent note (or this note if it's the root)
         parent_content = await get_parent_note(reply_client, event)
         if not parent_content:
-            print(f"{event_id}: No parent note found")
+            print(f"{event_id}: No parent note found and not a root note")
             processed_events[event_id] = time.time()
             return
 
         try:
             # Get the parent event ID from the event's tags
             parent_id = None
+            has_e_tag = False
             for tag in event.tags().to_vec():
                 if tag.as_vec()[0] == "e":  # 'e' tag indicates a reply
+                    has_e_tag = True
                     parent_id = tag.as_vec()[1]
                     break
 
-            if not parent_id:
+            # If no e-tag, this is the root note, so use this event's ID
+            if not has_e_tag:
+                parent_id = event.id().to_hex()
+                print(f"{event_id}: This is a root note, using its own ID")
+            elif not parent_id:
                 print(f"{event_id}: No parent event ID found in tags")
                 return
 
