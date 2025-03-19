@@ -31,13 +31,13 @@ processed_events = {}
 
 WRITE_RELAYS = [
     "wss://strfry.felixzieger.de",
+    "wss://relay.damus.io",
+    "wss://nos.lol",
+    "wss://nostr.mom",
 ]
 
 READ_RELAYS = [
-    "wss://relay.damus.io",
     "wss://relay.nostr.band",
-    "wss://nos.lol",
-    "wss://nostr.mom",
     "wss://relay.nostr.bg",
     "wss://nostr.bitcoiner.social",
     "wss://relay.snort.social",
