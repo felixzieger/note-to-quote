@@ -1,6 +1,14 @@
 set dotenv-load
 set dotenv-required
 
+# Run the bot locally
+run_bot:
+    cd bot && uv run --env-file=.env src/note_to_quote_bot/main.py
+
+# Run the web application locally
+run_web:
+    cd web && npm run dev
+
 # Increment minor version, create and push git tag
 bump_version:
     #!/usr/bin/env sh
@@ -40,4 +48,3 @@ deploy_on_cameron:
 
     # Then deploy
     ssh cameron "cd /etc/nixos && sudo -E git pull --quiet && just switch"
-

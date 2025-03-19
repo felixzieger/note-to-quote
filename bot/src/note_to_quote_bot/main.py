@@ -401,14 +401,23 @@ async def setup_metadata(keys: Keys):
         await metadata_client.add_relay(relay)
     await metadata_client.connect()
 
+    # Get stage from environment
+    stage = os.getenv("STAGE", "prod")
+    
+    # Set name and description based on stage
+    bot_name = "[DEV] Note to Quote Bot" if stage == "dev" else "Note to Quote Bot"
+    bot_description = (
+        "[DEV] I turn Nostr notes into quote images. Mention me in a reply to get a quote image!" 
+        if stage == "dev" 
+        else "I turn Nostr notes into quote images. Mention me in a reply to get a quote image!"
+    )
+
     # Update metadata using Metadata class
     metadata_content = (
         Metadata()
-        .set_name("Note to Quote Bot")
-        .set_display_name("Note to Quote Bot")
-        .set_about(
-            "I turn Nostr notes into quote images. Mention me in a reply to get a quote image!"
-        )
+        .set_name(bot_name)
+        .set_display_name(bot_name)
+        .set_about(bot_description)
         .set_website("https://note-to-quote.vercel.app")
         .set_nip05("_@note-to-quote.vercel.app")
         .set_picture("https://note-to-quote.vercel.app/me.png")
