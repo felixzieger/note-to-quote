@@ -1,7 +1,7 @@
 set dotenv-load
 set dotenv-required
 
-# Bump version: increment minor version, create and push git tag
+# Increment minor version, create and push git tag
 bump_version:
     #!/usr/bin/env sh
     # Check for uncommitted changes in Nix repo
@@ -30,6 +30,7 @@ bump_version:
         git push --quiet)
     echo "Bumped version in Nix config repo to $NEW_TAG"
 
+# Wait for image to be build on github and deploy on nixos host
 deploy_on_cameron:
     #!/usr/bin/env sh
 
