@@ -39,7 +39,7 @@ bump_version:
     echo "Bumped version in Nix config repo to $NEW_TAG"
 
 # Wait for image to be build on github and deploy on nixos host
-deploy_on_cameron:
+deploy_on_schwalbe:
     #!/usr/bin/env sh
 
     # Wait until the docker image is built
@@ -47,4 +47,4 @@ deploy_on_cameron:
     gh run watch $RUN_ID --exit-status
 
     # Then deploy
-    ssh cameron "cd /etc/nixos && sudo -E git pull --quiet && just switch"
+    ssh schwalbe "cd /etc/nixos && sudo -E git pull --quiet && just switch"
